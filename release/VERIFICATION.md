@@ -1,8 +1,8 @@
 # Verification record — 2026-08-24
 
-Package `0.1.0a1` was built from a fresh local clone of source revision `7a0e671ad3aead1d5617eb5806bfe7ac702e3738`. `release/BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash.
+Package `0.1.0a1` was built from a fresh local clone of source revision `f58043470422a27c4b15eab1d3506cfd2283cb68`. `release/BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash.
 
-- [x] 118 unit and regression tests passed from the source tree and from a clean sdist installation.
+- [x] 119 unit and regression tests passed from the source tree and from a clean sdist installation.
 - [x] Branch-aware coverage was 78%, above the configured 75% gate.
 - [x] Root `VOICE.md`, full template, and spoken template passed strict L3 validation.
 - [x] All 13 contract example/template files passed their applicable L0-L3 validation profile.
