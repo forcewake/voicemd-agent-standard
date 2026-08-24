@@ -12,6 +12,7 @@ node_modules/
 bin/
 obj/
 .voice/*.compiled.*
+examples/azure-voice/artifacts/
 .env
 .env.*
 .DS_Store

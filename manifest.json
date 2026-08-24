@@ -10,7 +10,7 @@
   "reference_implementation": {
     "language": "Python",
     "package": "voicemd",
-    "version": "0.1.0a2"
+    "version": "0.1.0a3"
   },
   "license": "Apache-2.0"
 }

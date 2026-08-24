@@ -31,12 +31,12 @@ voicemd install --target all --mode auto
 voicemd doctor
 ```
 
-Либо из wheel, собранного для текущего release pack. Для draft.2 ожидаемое имя — `voicemd-0.1.0a2-py3-none-any.whl`.
+Либо из wheel, собранного для текущего release pack. Для текущей reference implementation ожидаемое имя — `voicemd-0.1.0a3-py3-none-any.whl`.
 
 Сначала проверьте, что файл существует, в `release/BUILD_INFO.json` указано `"artifact_status": "current"`, а release verifier проходит. Отсутствующий wheel или wheel со статусом `stale` нельзя считать сборкой текущего source tree.
 
 ```bash
-python -m pip install release/voicemd-0.1.0a2-py3-none-any.whl
+python -m pip install release/voicemd-0.1.0a3-py3-none-any.whl
 voicemd doctor
 ```
 

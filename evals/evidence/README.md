@@ -27,11 +27,13 @@ requests finished with `stop`. The returned provider model identifier was
 `gpt-5.6-terra-2026-07-09`; this records what the endpoint reported, not a
 portable capability claim.
 
-The JSONL records prompts and responses plus content hashes, selectors,
-activation decisions, model metadata, token usage, and latency. They contain an
+The JSONL is immutable historical `0.1.0a2` evidence; it is not relabeled as an
+`0.1.0a3` run. It records prompts and responses plus content hashes, selectors,
+activation decisions, model metadata, token usage, and latency. The records contain an
 endpoint hash but no endpoint URL, API key, authorization header, or `.env`
-value. Re-run the scorer against the current source: corpus or contract drift
-is expected to fail closed.
+value. The general scorer fails closed on package-version, corpus, contract, or
+request drift; regression tests validate this record under its recorded a2
+version boundary.
 
 No model-judge score is asserted here. Candidate and judge independence,
 human review, repeated trials, and statistical quality evaluation remain

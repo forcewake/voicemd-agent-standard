@@ -22,12 +22,12 @@ bash lite/load-voice.sh
 
 ### 2. Полный CLI и coding-agent adapters
 
-Установка из release wheel возможна после его сборки для текущего source tree. Для draft.2 ожидаемое имя файла — `voicemd-0.1.0a2-py3-none-any.whl`.
+Установка из release wheel возможна после его сборки для текущего source tree. Для текущей reference implementation ожидаемое имя файла — `voicemd-0.1.0a3-py3-none-any.whl`.
 
 Перед установкой убедитесь, что файл существует, `release/BUILD_INFO.json` содержит `"artifact_status": "current"`, а release verifier проходит. Если checkout находится в процессе разработки, wheel отсутствует или artifacts помечены `stale`, используйте editable install либо пересоберите release.
 
 ```bash
-python -m pip install release/voicemd-0.1.0a2-py3-none-any.whl
+python -m pip install release/voicemd-0.1.0a3-py3-none-any.whl
 ```
 
 Или editable install из репозитория:
@@ -82,7 +82,33 @@ python evals/run_openai_compatible.py \
 
 Azure endpoint обязан использовать HTTPS. Ключ принимается только из environment или `--env-file`; redirects запрещены, чтобы credential header не ушёл на другой origin. Результаты не сохраняют ключ или URL endpoint. Подробности: `evals/README.md`.
 
-### 5. Local models и speech
+### 5. Azure Voice Proof Lab
+
+Для `gpt-audio-1.5`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini` и
+`gpt-live-transcribe` есть отдельный доказательный harness:
+
+```bash
+python -m pip install -e '.[azure-voice]'
+voicemd-azure doctor
+voicemd-azure audio \
+  --scenario degraded-service-en \
+  --voice examples/azure-voice/contracts/incident_commander/VOICE.md
+voicemd-azure realtime --mini \
+  --scenario customer-impact-ru \
+  --voice examples/azure-voice/contracts/calm_support/VOICE.md
+```
+
+Команда `doctor` не вызывает Azure. Реальные `audio`, `realtime`, `transcribe`,
+`showcase` и `matrix` создают billable calls. Ключ читается только из environment
+или игнорируемого `.env`; в evidence сохраняется fingerprint endpoint, но не URL
+и не credential.
+
+`gpt-live-transcribe` сохраняет provider segments и rendered raw transcript без
+VoiceMD transformation. `showcase` применяет контракт только к следующему
+spoken response. Полная документация, FFmpeg-команда для PCM16 24 kHz mono,
+proof boundaries и ссылки на Microsoft: `examples/azure-voice/README.md`.
+
+### 6. Local models и speech
 
 Для небольшой модели:
 

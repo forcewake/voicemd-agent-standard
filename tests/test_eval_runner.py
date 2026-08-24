@@ -175,7 +175,7 @@ def test_deterministic_scorer_rejects_empty_or_partial_corpus(
         deterministic_main()
 
 
-def test_checked_in_azure_evidence_is_complete_current_and_secret_free(
+def test_checked_in_a2_azure_evidence_remains_complete_and_secret_free(
     monkeypatch: pytest.MonkeyPatch,
 ):
     cases = ROOT / "evals" / "prompts.jsonl"
@@ -192,6 +192,11 @@ def test_checked_in_azure_evidence_is_complete_current_and_secret_free(
     assert all(not (forbidden_fields & set(record)) for record in records)
     assert {record["provider"] for record in records} == {"azure"}
     assert {record["voicemd_version"] for record in records} == {"0.1.0a2"}
+
+    # This checked-in corpus is immutable a2 evidence, not a claim that a3
+    # reproduced the same provider outputs. Validate it under its recorded
+    # implementation version while current a3 voice evidence remains local.
+    monkeypatch.setattr(eval_helpers, "__version__", "0.1.0a2")
 
     monkeypatch.setattr(
         "sys.argv",

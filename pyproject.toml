@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "voicemd"
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "Reference implementation of the VOICE.md Agent Communication Contract"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,9 +39,11 @@ dev = [
 ]
 mcp = ["mcp>=1.29,<2"]
 nemotron = ["websockets>=13"]
+azure-voice = ["websockets>=13,<17"]
 
 [project.scripts]
 voicemd = "voicemd.cli:main"
+voicemd-azure = "voicemd.azure_voice.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -54,10 +56,14 @@ voicemd = [
   "resources/voice.schema.json",
   "resources/skill/SKILL.md",
   "resources/templates/*.VOICE.md",
+  "resources/azure_voice/*.json",
+  "resources/azure_voice/*.txt",
+  "resources/azure_voice/contracts/*/VOICE.md",
 ]
 
 [tool.pytest.ini_options]
 addopts = "-q"
+pythonpath = [".", "src"]
 testpaths = ["tests"]
 
 [tool.ruff]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0a3 - 2026-08-24
+
+- Added an optional Azure Voice Proof Lab for `gpt-audio-1.5`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, and `gpt-live-transcribe`.
+- Added three contrasting EN/RU L3 spoken contracts, grounded scenarios, playable WAV output, provider-segment preservation, deterministic assertions, sanitized event timing, effective-session acknowledgement, usage capture, artifact verification, and a static comparison gallery.
+- Kept exact raw transcription outside VoiceMD activation and added an end-to-end transcribe-to-Realtime authority-boundary showcase.
+
 ## 0.1.0-draft.2 - 2026-08-24
 
 - Defined YAML 1.2 JSON-subset parsing, duplicate-key rejection, bounded alias expansion, null deletion, selector-array replacement, and empty-override discovery behavior.

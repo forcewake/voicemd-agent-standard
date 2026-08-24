@@ -184,6 +184,11 @@ def _wheel(
     files: dict[str, bytes] | None = None,
     license_text: bytes = b"fixture license\n",
     notice_text: bytes = b"fixture notice\n",
+    entry_points: bytes = (
+        b"[console_scripts]\n"
+        b"voicemd = voicemd.cli:main\n"
+        b"voicemd-azure = voicemd.azure_voice.cli:main\n"
+    ),
 ) -> None:
     dist_info = f"{name}-{version}.dist-info"
     content_by_name = {f"{name}/__init__.py": b"", **(files or {})}
@@ -195,7 +200,7 @@ def _wheel(
                 f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n"
             ).encode(),
             f"{dist_info}/WHEEL": b"Wheel-Version: 1.0\nGenerator: fixture\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
-            f"{dist_info}/entry_points.txt": b"[console_scripts]\nvoicemd = voicemd.cli:main\n",
+            f"{dist_info}/entry_points.txt": entry_points,
             f"{dist_info}/top_level.txt": f"{name}\n".encode(),
         }
     )
@@ -657,6 +662,49 @@ def test_sdist_rejects_unexpected_payload(tmp_path: Path):
         )
 
 
+def test_sdist_source_sync_excludes_only_generated_azure_voice_artifacts(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    ignored = tmp_path / "examples/azure-voice/artifacts/run/manifest.json"
+    neighbor = tmp_path / "examples/azure-voice/artifacts-reviewed/manifest.json"
+    ignored.parent.mkdir(parents=True)
+    neighbor.parent.mkdir(parents=True)
+    ignored.write_text("{}\n", encoding="utf-8")
+    neighbor.write_text("{}\n", encoding="utf-8")
+
+    sources = {path.relative_to(tmp_path).as_posix() for path in verifier._sdist_sync_sources(tmp_path)}
+
+    assert "examples/azure-voice/artifacts/run/manifest.json" not in sources
+    assert "examples/azure-voice/artifacts-reviewed/manifest.json" in sources
+    first_snapshot = verifier.source_snapshot_sha256(tmp_path)
+    ignored.write_text('{"ignored": true}\n', encoding="utf-8")
+    assert verifier.source_snapshot_sha256(tmp_path) == first_snapshot
+    neighbor.write_text('{"tracked": true}\n', encoding="utf-8")
+    assert verifier.source_snapshot_sha256(tmp_path) != first_snapshot
+
+
+def test_wheel_rejects_missing_azure_console_entrypoint(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    source_root = tmp_path / "source"
+    package_root = source_root / "src/voicemd"
+    package_root.mkdir(parents=True)
+    (package_root / "__init__.py").write_bytes(b"")
+    (source_root / "LICENSE").write_text("fixture license\n", encoding="utf-8")
+    (source_root / "NOTICE").write_text("fixture notice\n", encoding="utf-8")
+    wheel = tmp_path / "voicemd-0.1.0-py3-none-any.whl"
+    _wheel(
+        wheel,
+        entry_points=b"[console_scripts]\nvoicemd = voicemd.cli:main\n",
+    )
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="console entry point"):
+        verifier.verify_wheel(
+            wheel,
+            package_name="voicemd",
+            package_version="0.1.0",
+            source_root=source_root,
+        )
+
+
 def test_sdist_rejects_tampered_generated_setup_cfg(tmp_path: Path):
     verifier = _load_script("verify_release")
     source_root = tmp_path / "source"
@@ -719,6 +767,7 @@ def test_runtime_verifier_scopes_voice_environment_to_contract_smoke(
     monkeypatch.setenv("VOICE_MD", "outside")
     monkeypatch.setenv("VOICE_MD_HOME", "outside")
     monkeypatch.setenv("VOICE_MD_ROOT", "outside")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://sensitive.example.invalid")
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-secret")
     monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "aws-secret")
@@ -745,15 +794,27 @@ def test_runtime_verifier_scopes_voice_environment_to_contract_smoke(
     assert all(env["VOICE_MD_ROOT"] == str(root) for _, env in smoke_calls)
     for variable in ("VOICE_MD", "VOICE_MD_HOME", "VOICE_MD_ROOT"):
         assert variable not in pytest_call[1]
-    for _, environment in calls:
+    doctor_call = next(
+        entry
+        for entry in calls
+        if Path(entry[0][0]).name in {"voicemd-azure", "voicemd-azure.exe"}
+        and entry[0][-1] == "doctor"
+    )
+    assert doctor_call[1]["AZURE_OPENAI_ENDPOINT"] == (
+        "https://release-smoke.openai.azure.invalid"
+    )
+    assert doctor_call[1]["AZURE_OPENAI_API_KEY"] == "release-smoke-placeholder"
+    for command, environment in calls:
         for variable in (
-            "AZURE_OPENAI_API_KEY",
             "OPENAI_API_KEY",
             "AWS_SECRET_ACCESS_KEY",
             "GITHUB_TOKEN",
             "CUSTOM_CREDENTIAL",
         ):
             assert variable not in environment
+        if command != doctor_call[0]:
+            assert "AZURE_OPENAI_ENDPOINT" not in environment
+            assert "AZURE_OPENAI_API_KEY" not in environment
         assert environment["HTTPS_PROXY"] == "http://proxy.example.invalid:8080"
         assert environment["SSL_CERT_FILE"] == "/tmp/corporate-ca.pem"
         assert environment["HOME"] == str((temporary / "runtime-home").resolve())
@@ -765,6 +826,8 @@ def test_runtime_verifier_scopes_voice_environment_to_contract_smoke(
     assert pip_calls and all("--isolated" in command for command in pip_calls)
     install_calls = [command for command in pip_calls if "install" in command]
     assert all("--no-input" in command and "--no-cache-dir" in command for command in install_calls)
+    wheel_install = next(command for command in install_calls if str(wheel) in " ".join(command))
+    assert f"{wheel}[azure-voice]" in wheel_install
 
 
 def test_runtime_environment_is_allowlisted_and_drops_credential_families():
@@ -1237,7 +1300,9 @@ def test_docker_context_allowlist_does_not_reopen_secret_paths():
         "LICENSE",
         "NOTICE",
         "src/voicemd/cli.py",
+        "src/voicemd/azure_voice/cli.py",
         "src/voicemd/resources/voice.schema.json",
+        "src/voicemd/resources/azure_voice/scenarios.json",
         "src/voicemd/resources/skill/SKILL.md",
         "src/voicemd/resources/templates/full.VOICE.md",
         "integrations/docker/Dockerfile",
@@ -1272,7 +1337,12 @@ def test_docker_context_allowlist_does_not_reopen_secret_paths():
         "integrations/docker/Dockerfile",
         *(path.relative_to(REPOSITORY_ROOT).as_posix()
           for path in (REPOSITORY_ROOT / "src/voicemd").glob("*.py")),
+        *(path.relative_to(REPOSITORY_ROOT).as_posix()
+          for path in (REPOSITORY_ROOT / "src/voicemd/azure_voice").glob("*.py")),
         "src/voicemd/resources/voice.schema.json",
+        *(path.relative_to(REPOSITORY_ROOT).as_posix()
+          for path in (REPOSITORY_ROOT / "src/voicemd/resources/azure_voice").rglob("*")
+          if path.is_file()),
         "src/voicemd/resources/skill/SKILL.md",
         *(path.relative_to(REPOSITORY_ROOT).as_posix()
           for path in (REPOSITORY_ROOT / "src/voicemd/resources/templates").glob("*.VOICE.md")),

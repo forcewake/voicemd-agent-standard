@@ -1,6 +1,6 @@
 # VoiceMD release pack contents
 
-This repository is the complete `0.1.0-draft.2` independent draft and Python reference implementation `0.1.0a2` of the VOICE.md Agent Communication Contract.
+This repository is the complete `0.1.0-draft.2` independent draft and Python reference implementation `0.1.0a3` of the VOICE.md Agent Communication Contract.
 
 ## Standard and governance
 
@@ -35,7 +35,7 @@ The Python package under `src/voicemd/` provides:
 
 The CLI commands are `init`, `discover`, `validate`, `compile`, `lint`, `test`, `install`, `uninstall`, `doctor`, and `serve`.
 
-A release build may place the pure-Python wheel `voicemd-0.1.0a2-py3-none-any.whl` under `release/`. Treat it as current only when the file exists, `release/BUILD_INFO.json` says `artifact_status: current`, and the release verifier passes; development checkouts may deliberately contain no wheel or mark old artifacts `stale`. Source installation remains available through `pyproject.toml`.
+A release build may place the pure-Python wheel `voicemd-0.1.0a3-py3-none-any.whl` under `release/`. Treat it as current only when the file exists, `release/BUILD_INFO.json` says `artifact_status: current`, and the release verifier passes; development checkouts may deliberately contain no wheel or mark old artifacts `stale`. Source installation remains available through `pyproject.toml`.
 
 ## Harness adapters
 
@@ -67,12 +67,14 @@ The canonical on-demand skill is under `.agents/skills/voice-contract/SKILL.md`;
 - Hugging Face Transformers chat-template integration;
 - vLLM, Ollama, and llama.cpp recipes;
 - NVIDIA NemotronLabs VoiceChat realtime `session.update` adapter and ASCII tool-result renderer;
+- Azure OpenAI audio-completion, Realtime WebSocket, live-transcription, proof-bundle, and static-gallery adapter;
 - optional MCP server;
 - Docker Compose and Kubernetes sidecar deployment.
 
 ## Evaluation and QA
 
 - `evals/`: prompts, rubric, judge prompt, Azure/OpenAI-compatible runner, deterministic scorer, and model-judge runner.
+- `examples/azure-voice/`: three contrasting L3 spoken contracts, EN/RU scenarios, evidence schema, and the Azure Voice Proof Lab guide.
 - `conformance/vectors.json`: language-neutral vectors for merge, selection, compact rendering, RFC 8785 JCS, and SHA-256 behavior.
 - `integrations/typescript/generated/conformance-verifier.js`: core verifier independent of the Python compiler; it is not a complete second YAML/discovery/runtime implementation.
 - `tests/`: unit and regression suite covering discovery, resolution, merge, compilation, profile precedence, prompt budgets, linting, evaluation, and safe adapter lifecycle.

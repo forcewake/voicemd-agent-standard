@@ -97,7 +97,7 @@ Recommended production metadata:
   "contract_version": "1.2.0",
   "source_paths": ["VOICE.md", "apps/support/VOICE.override.md"],
   "profile": "spoken_support",
-  "compiler": "voicemd/0.1.0a2",
+  "compiler": "voicemd/0.1.0a3",
   "compiled_sha256": "..."
 }
 ```

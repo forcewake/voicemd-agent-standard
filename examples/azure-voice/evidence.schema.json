@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:voicemd:azure-voice-evidence:0.1",
+  "title": "VoiceMD Azure voice proof manifest",
+  "type": "object",
+  "required": [
+    "$schema",
+    "created_at",
+    "run_id",
+    "provider",
+    "lane",
+    "deployment",
+    "endpoint_sha256",
+    "voice",
+    "request",
+    "response",
+    "timings_ms",
+    "assertions",
+    "artifacts"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "urn:voicemd:azure-voice-evidence:0.1"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 320
+    },
+    "provider": {
+      "const": "azure-openai"
+    },
+    "lane": {
+      "enum": [
+        "audio-completion",
+        "realtime",
+        "transcription",
+        "transcribe-to-realtime"
+      ]
+    },
+    "deployment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "provider_model": {
+      "type": ["string", "null"]
+    },
+    "endpoint_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "scenario_id": {
+      "type": ["string", "null"]
+    },
+    "scenario_sha256": {
+      "oneOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    },
+    "voicemd_version": {
+      "type": "string"
+    },
+    "voice": {
+      "type": "object",
+      "required": ["applied"],
+      "properties": {
+        "applied": {"type": "boolean"},
+        "contract_sha256": {"$ref": "#/$defs/sha256"},
+        "compiled_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": true
+    },
+    "request": {
+      "type": "object",
+      "required": ["sha256"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": true
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "timings_ms": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "assertions": {
+      "type": "object",
+      "required": ["passed", "checks"],
+      "properties": {
+        "passed": {"type": "boolean"},
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "passed"],
+            "properties": {
+              "id": {"type": "string"},
+              "passed": {"type": "boolean"}
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "required": ["checksums"],
+      "additionalProperties": {
+        "$ref": "#/$defs/artifact"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "media_type", "bytes", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

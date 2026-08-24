@@ -40,6 +40,16 @@ VoiceMD structured frontmatter uses the YAML 1.2 JSON schema subset. The resolve
 
 - REST authentication and API versioning: https://learn.microsoft.com/azure/ai-foundry/openai/reference
 
+## Azure OpenAI audio and Realtime
+
+- Realtime API over server-side WebSockets: https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/realtime-audio-websockets
+- Realtime API over client-side WebRTC: https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/realtime-audio-webrtc
+- Realtime GA migration contract: https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/realtime-audio-preview-api-migration-guide
+- Realtime GA event reference: https://learn.microsoft.com/en-us/azure/foundry-classic/openai/realtime-audio-reference-ga
+- Chat Completions REST v1 audio request and response schema: https://learn.microsoft.com/en-us/rest/api/microsoft-foundry/azureopenai/chat
+- Audio completion quickstart: https://learn.microsoft.com/en-us/azure/foundry/openai/audio-completions-quickstart
+- Azure-sold model catalog and lifecycle status: https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure
+
 ## Prior art
 
 - Efeonce `voice.md`: https://github.com/efeoncepro/voice.md

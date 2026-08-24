@@ -7,9 +7,10 @@
 - Validate the bundled activation, exact-output, translation, and tool-result corpus across independent model/harness deployments.
 - Publish a canonical repository remote and stable canonical schema URL.
 - Obtain and publish an independent security review.
-- Add signed release artifacts, provenance attestations, and a software bill of materials.
+- Add publisher-signed release artifacts and hosted provenance attestations; the local build already emits an unsigned provenance statement and SPDX SBOM.
 - Add signed remote bundle design without enabling implicit remote fetches.
 - Improve language-aware linting beyond literal phrases and regex.
+- Add scored audio-input Realtime replay, WebRTC microphone UI, VAD/barge-in cases, and tool-boundary cases on top of the server-side Azure proof harness.
 
 ## Draft 0.2 candidates
 

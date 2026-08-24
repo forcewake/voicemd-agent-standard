@@ -51,7 +51,12 @@ REQUIRED = {
     "MANIFEST.in",
     ".dockerignore",
     "src/voicemd/cli.py",
+    "src/voicemd/azure_voice/cli.py",
+    "src/voicemd/resources/azure_voice/scenarios.json",
     "src/voicemd/resources/skill/SKILL.md",
+    "examples/azure-voice/README.md",
+    "examples/azure-voice/evidence.schema.json",
+    "examples/azure-voice/contracts/incident_commander/VOICE.md",
     ".agents/skills/voice-contract/SKILL.md",
     "integrations/http/openapi.yaml",
     "integrations/docker/Dockerfile",
@@ -166,6 +171,7 @@ SDIST_DIRECTORIES = (
     "templates",
     "tests",
 )
+GENERATED_SOURCE_PREFIXES = (PurePosixPath("examples/azure-voice/artifacts"),)
 
 
 class ReleaseVerificationError(RuntimeError):
@@ -183,6 +189,13 @@ def _forbidden_relative(relative: PurePosixPath) -> bool:
         for part in relative.parts
     ) or any(_forbidden_name(part) for part in relative.parts) or (
         relative.suffix in FORBIDDEN_SUFFIXES
+    )
+
+
+def _generated_source(relative: PurePosixPath) -> bool:
+    return any(
+        relative == prefix or relative.is_relative_to(prefix)
+        for prefix in GENERATED_SOURCE_PREFIXES
     )
 
 
@@ -242,7 +255,7 @@ def source_snapshot_sha256(root: Path) -> str:
         relative = PurePosixPath(path.relative_to(root).as_posix())
         if not relative.parts or relative.parts[0] in {".git", "release"}:
             continue
-        if _forbidden_relative(relative):
+        if _forbidden_relative(relative) or _generated_source(relative):
             continue
         entries.append((relative.as_posix(), path))
     digest = hashlib.sha256(SOURCE_SNAPSHOT_DOMAIN)
@@ -461,7 +474,7 @@ def _is_release_source(path: Path, root: Path) -> bool:
     if not path.is_file():
         return False
     relative = PurePosixPath(path.relative_to(root).as_posix())
-    return not _forbidden_relative(relative)
+    return not (_forbidden_relative(relative) or _generated_source(relative))
 
 
 def _validate_distribution_metadata(
@@ -679,7 +692,9 @@ def verify_wheel(
                     raise ReleaseVerificationError(f"wheel license file is missing or stale: {wheel_name}")
             entry_points = f"{dist_info_root}/entry_points.txt"
             if wheel.read(entry_points).decode("utf-8").strip() != (
-                "[console_scripts]\nvoicemd = voicemd.cli:main"
+                "[console_scripts]\n"
+                "voicemd = voicemd.cli:main\n"
+                "voicemd-azure = voicemd.azure_voice.cli:main"
             ):
                 raise ReleaseVerificationError("wheel console entry point is unexpected")
             top_level = f"{dist_info_root}/top_level.txt"
@@ -1387,6 +1402,12 @@ def _venv_python(environment: Path) -> Path:
     return environment / directory / executable
 
 
+def _venv_script(environment: Path, name: str) -> Path:
+    directory = "Scripts" if os.name == "nt" else "bin"
+    suffix = ".exe" if os.name == "nt" else ""
+    return environment / directory / f"{name}{suffix}"
+
+
 def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> None:
     runtime_home = temporary / "runtime-home"
     runtime_home.mkdir(mode=0o700)
@@ -1401,7 +1422,7 @@ def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> Non
     )
     wheel_python = _venv_python(wheel_environment)
     run(
-        _pip_command(wheel_python, "install", str(wheel)),
+        _pip_command(wheel_python, "install", f"{wheel}[azure-voice]"),
         cwd=root,
         env=base_env,
     )
@@ -1436,6 +1457,17 @@ def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> Non
     prompt = output.read_text(encoding="utf-8")
     if not prompt.isascii() or len(prompt) > 5000:
         raise ReleaseVerificationError("Nemotron smoke output is not valid ASCII within budget")
+
+    azure_smoke_env = {
+        **base_env,
+        "AZURE_OPENAI_ENDPOINT": "https://release-smoke.openai.azure.invalid",
+        "AZURE_OPENAI_API_KEY": "release-smoke-placeholder",
+    }
+    run(
+        [str(_venv_script(wheel_environment, "voicemd-azure")), "doctor"],
+        cwd=root,
+        env=azure_smoke_env,
+    )
 
     node = shutil.which("node", path=base_env.get("PATH"))
     if node is None:

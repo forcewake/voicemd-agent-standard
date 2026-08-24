@@ -11,6 +11,7 @@ include rfcs/*
 include adapters/* adapters/*/*
 include integrations/* integrations/*/* integrations/typescript/generated/*
 include examples/application/* examples/brand-extension/* examples/compiled/*
+include examples/azure-voice/* examples/azure-voice/contracts/*/*
 include examples/hierarchy/* examples/hierarchy/apps/*
 include examples/hierarchy/apps/support/*
 include evals/* evals/evidence/*

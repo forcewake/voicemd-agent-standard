@@ -1,6 +1,6 @@
 # VoiceMD: the `VOICE.md` Agent Communication Contract
 
-**Status:** independent draft `0.1.0-draft.2`, dated 2026-08-24, with Python reference implementation `0.1.0a2`. It is usable and testable, and it is intentionally not presented as an adopted industry standard.
+**Status:** independent draft `0.1.0-draft.2`, dated 2026-08-24, with Python reference implementation `0.1.0a3`. It is usable and testable, and it is intentionally not presented as an adopted industry standard.
 
 Russian entry point: [`START_HERE_RU.md`](START_HERE_RU.md). Full inventory: [`PACKAGE_CONTENTS.md`](PACKAGE_CONTENTS.md).
 
@@ -101,6 +101,29 @@ The sidecar exposes:
 - `POST /v1/voice/lint`.
 
 An OpenAPI definition, Docker image, Kubernetes sidecar manifest, Python API, TypeScript HTTP client, MCP adapter, and OpenAI-compatible examples are included under `integrations/`.
+
+### Azure Voice Proof Lab
+
+The optional Azure adapter exercises `gpt-audio-1.5`, `gpt-realtime-2.1`,
+`gpt-realtime-2.1-mini`, and `gpt-live-transcribe` against contrasting spoken
+contracts. It writes playable WAV files, provider transcripts, sanitized event
+timings, effective-session fingerprints, deterministic assertions, and
+hash-bound context artifacts:
+
+```bash
+python -m pip install -e '.[azure-voice]'
+voicemd-azure doctor
+voicemd-azure matrix --scenario degraded-service-en --lanes audio realtime-mini
+voicemd-azure gallery
+```
+
+The transcription lane deliberately records `VOICE.md` activation as false for
+the exact raw transcript. The `showcase` command applies the selected contract
+only to a subsequent human-facing response. See
+[`examples/azure-voice/README.md`](examples/azure-voice/README.md) for the paid-call warning,
+security boundaries, input format, all commands, and current Microsoft Azure
+references. A successful recorded run proves that specific request and its
+stored artifacts; it is not a general quality, latency, SLA, or production-readiness claim.
 
 ## Quick start
 

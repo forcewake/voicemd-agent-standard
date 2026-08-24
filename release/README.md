@@ -1,6 +1,6 @@
 # Release artifacts
 
-This directory contains the current Python reference release `0.1.0a2` for specification `0.1.0-draft.2`.
+These `0.1.0a2` files are historical and stale for the newer `0.1.0a3` source tree. Do not install or redistribute them as the current release; rebuild and verify replacement artifacts first.
 
 - `voicemd-0.1.0a2-py3-none-any.whl`: installable Python CLI and library.
 - `voicemd-0.1.0a2.tar.gz`: normalized Python source distribution.
@@ -10,12 +10,9 @@ This directory contains the current Python reference release `0.1.0a2` for speci
 - `BUILD_INFO.json`: source revision, source snapshot digest, toolchain, checksums, and verified gates.
 - `VERIFICATION.md`: evidence and explicit limits of the local release verification.
 
-Install the wheel:
-
-```bash
-python -m pip install release/voicemd-0.1.0a2-py3-none-any.whl
-voicemd doctor
-```
+Do not use the historical wheel as the current package. The replacement build
+for this source tree will be named `voicemd-0.1.0a3-py3-none-any.whl` and must
+pass the release verifier before installation.
 
 The wheel declares `PyYAML>=6.0`, `jsonschema>=4.21`, and `rfc8785>=0.1.4,<1`. The repository-level `lite/` loaders remain the dependency-free path.
 

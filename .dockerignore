@@ -7,8 +7,16 @@
 !src/
 !src/voicemd/
 !src/voicemd/*.py
+!src/voicemd/azure_voice/
+!src/voicemd/azure_voice/*.py
 !src/voicemd/resources/
 !src/voicemd/resources/voice.schema.json
+!src/voicemd/resources/azure_voice/
+!src/voicemd/resources/azure_voice/*.json
+!src/voicemd/resources/azure_voice/*.txt
+!src/voicemd/resources/azure_voice/contracts/
+!src/voicemd/resources/azure_voice/contracts/*/
+!src/voicemd/resources/azure_voice/contracts/*/VOICE.md
 !src/voicemd/resources/skill/
 !src/voicemd/resources/skill/SKILL.md
 !src/voicemd/resources/templates/

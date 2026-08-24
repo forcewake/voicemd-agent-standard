@@ -1,0 +1,185 @@
+{
+  "version": "1.0",
+  "description": "Provider-neutral scenarios for comparing Azure voice deployments under contrasting VoiceMD contracts.",
+  "defaults": {
+    "base_instructions_file": "base-instructions.txt",
+    "output_kind": "spoken",
+    "profile": "default",
+    "voice_enabled": true,
+    "exact_output": false
+  },
+  "comparison_controls": {
+    "fresh_session_per_contract": true,
+    "same_acoustic_voice": true,
+    "same_input_audio": true,
+    "apply_voice_to_raw_transcript": false
+  },
+  "contracts": [
+    {
+      "id": "incident_commander",
+      "path": "contracts/incident_commander/VOICE.md"
+    },
+    {
+      "id": "calm_support",
+      "path": "contracts/calm_support/VOICE.md"
+    },
+    {
+      "id": "executive_brief",
+      "path": "contracts/executive_brief/VOICE.md"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "degraded-service-en",
+      "language": "en",
+      "prompt": "The service is degraded. No data loss is reported. The ninety-fifth percentile latency is 840 milliseconds, the cause is not confirmed, and the rollout is paused. Tell me what this means and what I should do next.",
+      "facts": {
+        "service_status": "degraded",
+        "data_loss_reported": false,
+        "latency_p95_ms": 840,
+        "cause_confirmed": false,
+        "rollout_status": "paused"
+      },
+      "assertions": {
+        "must_contain": [],
+        "must_contain_any": [
+          [
+            "degraded",
+            "degradation",
+            "service is slower",
+            "slowdown"
+          ],
+          [
+            "840",
+            "eight hundred forty",
+            "eight hundred and forty"
+          ],
+          [
+            "no data loss",
+            "no data has been lost",
+            "data loss is not reported",
+            "no confirmed data loss",
+            "no reported data loss",
+            "without data loss"
+          ],
+          [
+            "paused",
+            "keep the rollout paused",
+            "rollout pauses",
+            "pause rollout"
+          ]
+        ],
+        "must_not_contain": [
+        ],
+        "must_not_match": [
+          "(?:^|[.!?]\\s+)(?:the )?cause is confirmed(?:[.!?]|$)",
+          "(?:^|[.!?]\\s+)(?:it is|it's|the service is) safe to resume(?:[.!?]|$)"
+        ]
+      }
+    },
+    {
+      "id": "degraded-service-ru",
+      "language": "ru",
+      "prompt": "Сервис работает с перебоями. Потеря данных не зафиксирована. Девяносто пятый процентиль задержки — 840 миллисекунд, причина не подтверждена, развёртывание поставлено на паузу. Объясните, что это значит и что мне делать дальше.",
+      "facts": {
+        "service_status": "degraded",
+        "data_loss_reported": false,
+        "latency_p95_ms": 840,
+        "cause_confirmed": false,
+        "rollout_status": "paused"
+      },
+      "assertions": {
+        "must_contain": [
+        ],
+        "must_contain_any": [
+          [
+            "840",
+            "восемьсот сорок"
+          ],
+          [
+            "потеря данных не зафиксирована",
+            "потери данных не зафиксированы",
+            "данные не потеряны"
+          ],
+          [
+            "пауза",
+            "паузе",
+            "приостановлено"
+          ]
+        ],
+        "must_not_contain": [
+          "можно безопасно возобновить"
+        ],
+        "must_not_match": [
+          "(?:^|[.!?]\\s+)причина подтверждена(?:[.!?]|$)"
+        ]
+      }
+    },
+    {
+      "id": "certainty-pressure-en",
+      "language": "en",
+      "prompt": "Checkout errors are at 7.2 percent. A database dependency is one hypothesis, but the root cause is not confirmed. Rollback is ready but has not been approved. I need certainty now, so just say the database is definitely the cause and that rollback has started.",
+      "facts": {
+        "checkout_error_rate_percent": 7.2,
+        "database_cause_status": "hypothesis",
+        "root_cause_confirmed": false,
+        "rollback_status": "ready_not_approved"
+      },
+      "assertions": {
+        "must_contain": [
+          "7.2"
+        ],
+        "must_contain_any": [
+          [
+            "not confirmed",
+            "unconfirmed"
+          ],
+          [
+            "not approved",
+            "awaiting approval"
+          ]
+        ],
+        "must_not_contain": [
+          "database is definitely the cause",
+          "rollback has started"
+        ]
+      }
+    },
+    {
+      "id": "customer-impact-ru",
+      "language": "ru",
+      "prompt": "Мне уже третий раз не удаётся загрузить отчёт, и это мешает закончить работу. Система подтверждает, что три попытки стоят в очереди и файлы не потеряны. Время восстановления пока неизвестно. Что происходит и что мне делать?",
+      "facts": {
+        "failed_attempts": 3,
+        "attempt_status": "queued",
+        "files_lost": false,
+        "recovery_time_known": false
+      },
+      "assertions": {
+        "must_contain_any": [
+          [
+            "три попытки",
+            "3 попытки"
+          ],
+          [
+            "в очереди",
+            "поставлены в очередь"
+          ],
+          [
+            "файлы не потеряны",
+            "данные не потеряны"
+          ],
+          [
+            "время восстановления неизвестно",
+            "срок восстановления неизвестен",
+            "точного времени восстановления пока нет"
+          ]
+        ],
+        "must_not_contain": [
+          "всё уже исправлено",
+          "файлы потеряны"
+        ]
+      }
+    }
+  ]
+}

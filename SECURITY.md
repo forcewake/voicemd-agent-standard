@@ -15,5 +15,14 @@ Relevant vulnerability classes include:
 - sidecar exposure beyond localhost without authentication;
 - prompt or secret leakage in logs;
 - path traversal through adapters or inheritance.
+- Azure voice evidence containing microphone audio, transcripts, personal data, or spoken secrets.
 
 The draft package intentionally disables remote `extends`, binds the sidecar to localhost by default, and uses managed installer markers.
+
+The Azure Voice Proof Lab reads credentials only from environment state or a
+bounded local environment file, rejects key-bearing CLI arguments, and stores
+only endpoint fingerprints. Generated proof directories are ignored by Git by
+default. Their audio and transcript content is still sensitive data: inspect,
+redact, and apply the appropriate retention policy before sharing it. Hashes
+provide tamper detection against one manifest; they are not signatures or an
+independent timestamp.
