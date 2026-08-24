@@ -21,7 +21,7 @@ Some APIs distinguish system and developer roles. Put operational authority, saf
 Use application metadata to determine whether voice applies:
 
 ```python
-from voicemd import decide_activation, load_voice
+from voicemd import compile_voice, decide_activation, load_voice
 
 contract = load_voice(path="VOICE.md")
 decision = decide_activation(
@@ -43,6 +43,7 @@ if decision.apply:
         profile=request.voice_profile,
         audience=request.audience,
         surface=request.surface,
+        tone=request.tone,
     )
 else:
     voice_prompt = None

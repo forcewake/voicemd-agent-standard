@@ -4,18 +4,27 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path
 
-from voicemd import compile_voice, contract_sha256, load_voice
+from voicemd import load_voice
 from voicemd.linter import lint_text
 
 try:
-    from .run_openai_compatible import read_jsonl, strict_json_loads
+    from .run_openai_compatible import (
+        corpus_sha256,
+        read_jsonl,
+        strict_json_loads,
+        validate_candidate_result,
+    )
 except ImportError:  # Direct script execution sets no package context.
-    from run_openai_compatible import read_jsonl, strict_json_loads
+    from run_openai_compatible import (
+        corpus_sha256,
+        read_jsonl,
+        strict_json_loads,
+        validate_candidate_result,
+    )
 
 
 SUPPORTED_ASSERTIONS = {
@@ -76,8 +85,10 @@ def assertion_failures(item: dict[str, object], response: str) -> list[str]:
     if not isinstance(alternatives_value, list):
         raise TypeError("must_contain_any must be an array of string arrays")
     for alternatives in alternatives_value:
-        if not isinstance(alternatives, list) or not alternatives or not all(
-            isinstance(phrase, str) for phrase in alternatives
+        if (
+            not isinstance(alternatives, list)
+            or not alternatives
+            or not all(isinstance(phrase, str) for phrase in alternatives)
         ):
             raise TypeError("must_contain_any entries must be non-empty string arrays")
         if not any(phrase.casefold() in response.casefold() for phrase in alternatives):
@@ -85,9 +96,9 @@ def assertion_failures(item: dict[str, object], response: str) -> list[str]:
 
     max_words = assertions.get("max_words")
     if max_words is not None and (
-        not isinstance(max_words, int) or isinstance(max_words, bool) or max_words < 1
+        not isinstance(max_words, int) or isinstance(max_words, bool) or max_words < 0
     ):
-        raise TypeError("max_words must be a positive integer")
+        raise TypeError("max_words must be a non-negative integer")
     if isinstance(max_words, int):
         word_count = len(re.findall(r"\b\w+\b", response, flags=re.UNICODE))
         if word_count > max_words:
@@ -106,41 +117,6 @@ def assertion_failures(item: dict[str, object], response: str) -> list[str]:
     return failures
 
 
-def provenance_failures(item: dict[str, object], contract: object) -> list[str]:
-    selectors = item.get("selectors")
-    if not isinstance(selectors, dict):
-        return ["missing selectors provenance"]
-    kwargs = {key: selectors.get(key) for key in ("profile", "audience", "surface", "tone")}
-    if any(value is not None and not isinstance(value, str) for value in kwargs.values()):
-        return ["selector provenance must contain strings or null"]
-
-    failures: list[str] = []
-    current_contract_hash = contract_sha256(contract, **kwargs)
-    if item.get("contract_sha256") != current_contract_hash:
-        failures.append("contract_sha256 does not match the current selected contract")
-
-    activation = item.get("activation")
-    if not isinstance(activation, dict) or not isinstance(activation.get("apply"), bool):
-        failures.append("missing activation provenance")
-        return failures
-    if activation["apply"]:
-        compact = item.get("compact", False)
-        if not isinstance(compact, bool):
-            failures.append("compact provenance must be boolean")
-            return failures
-        prompt = compile_voice(contract, compact=compact, **kwargs)
-        prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-        if item.get("compiled_prompt_sha256") != prompt_hash:
-            failures.append("compiled_prompt_sha256 does not match the current prompt")
-    elif item.get("compiled_prompt_sha256") is not None:
-        failures.append("inactive result must not record a compiled prompt hash")
-    return failures
-
-
-def _corpus(path: Path) -> dict[str, dict[str, object]]:
-    return {item["id"]: item for item in read_jsonl(path)}
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--voice", default="VOICE.md")
@@ -154,7 +130,10 @@ def main() -> int:
     parser.add_argument("--results", required=True)
     args = parser.parse_args()
 
-    corpus = _corpus(Path(args.cases))
+    canonical_cases = list(read_jsonl(Path(args.cases)))
+    if not canonical_cases:
+        raise ValueError("cases file contains no evaluation cases")
+    corpus = {item["id"]: item for item in canonical_cases}
     selected = set(args.case) or set(corpus)
     unknown_selection = sorted(selected - set(corpus))
     if unknown_selection:
@@ -172,27 +151,29 @@ def main() -> int:
         raise ValueError("missing result IDs: " + ", ".join(missing))
 
     contract = load_voice(path=args.voice, include_global=False)
+    expected_corpus_sha256 = corpus_sha256(canonical_cases)
     failed = 0
     for item in results:
         case_id = item["id"]
         expected = corpus[case_id]
-        corpus_mismatch = [
-            key for key, value in expected.items() if key not in item or item[key] != value
-        ]
-        response = item.get("response")
-        if not isinstance(response, str):
+        candidate = validate_candidate_result(
+            item,
+            expected_case=expected,
+            expected_corpus_sha256=expected_corpus_sha256,
+            contract=contract,
+        )
+        response = candidate["response"]
+        if not isinstance(response, str):  # The shared validator narrows this at runtime.
             raise TypeError(f"case {case_id}: missing response string")
-        failures = []
-        if corpus_mismatch:
-            failures.append("result does not match corpus fields: " + ", ".join(corpus_mismatch))
-        failures.extend(assertion_failures(item, response))
-        failures.extend(provenance_failures(item, contract))
+        failures = assertion_failures(expected, response)
 
-        activation = item.get("activation", {})
+        activation = candidate["activation"]
         voice_applied = isinstance(activation, dict) and activation.get("apply") is True
         issues = []
         if voice_applied:
-            selectors = item["selectors"]
+            selectors = candidate["selectors"]
+            if not isinstance(selectors, dict):  # Shared validation guarantees this shape.
+                raise TypeError(f"case {case_id}: missing selector provenance")
             issues = lint_text(
                 contract,
                 response,

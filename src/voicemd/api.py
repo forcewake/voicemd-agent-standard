@@ -4,10 +4,19 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from .compiler import compile_contract
-from .contract import load_contract
+from .contract import (
+    DEFAULT_MAX_SOURCE_COUNT,
+    DEFAULT_MAX_SOURCE_FILE_BYTES,
+    DEFAULT_MAX_TOTAL_SOURCE_BYTES,
+    DEFAULT_MAX_YAML_ALIASES,
+    DEFAULT_MAX_YAML_NODES,
+    ContractError,
+    load_contract,
+)
 from .discovery import discover_paths
 from .linter import LintIssue, lint_text
 from .model import ResolvedVoiceContract
+from .validator import validate_selected_contract
 
 
 def discover_voice(
@@ -24,8 +33,47 @@ def load_voice(
     *,
     path: str | Path | list[str | Path] | None = None,
     include_global: bool = True,
+    allowed_source_root: str | Path | None = None,
+    max_source_file_bytes: int = DEFAULT_MAX_SOURCE_FILE_BYTES,
+    max_total_source_bytes: int = DEFAULT_MAX_TOTAL_SOURCE_BYTES,
+    max_source_count: int = DEFAULT_MAX_SOURCE_COUNT,
+    max_yaml_nodes: int = DEFAULT_MAX_YAML_NODES,
+    max_yaml_aliases: int = DEFAULT_MAX_YAML_ALIASES,
 ) -> ResolvedVoiceContract:
-    return load_contract(start=start, explicit=path, include_global=include_global)
+    return load_contract(
+        start=start,
+        explicit=path,
+        include_global=include_global,
+        allowed_source_root=allowed_source_root,
+        max_source_file_bytes=max_source_file_bytes,
+        max_total_source_bytes=max_total_source_bytes,
+        max_source_count=max_source_count,
+        max_yaml_nodes=max_yaml_nodes,
+        max_yaml_aliases=max_yaml_aliases,
+    )
+
+
+def require_valid_voice(
+    contract: ResolvedVoiceContract,
+    *,
+    profile: str | None = None,
+    audience: str | None = None,
+    surface: str | None = None,
+    tone: str | None = None,
+) -> ResolvedVoiceContract:
+    """Fail closed unless the exact runtime-selected contract is conforming."""
+
+    result = validate_selected_contract(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+        strict=False,
+    )
+    if not result.ok:
+        raise ContractError("selected VOICE.md failed validation")
+    return contract
 
 
 def compile_voice(
@@ -43,6 +91,13 @@ def compile_voice(
     include_global: bool = True,
 ) -> str:
     active = contract or load_voice(start=start, path=path, include_global=include_global)
+    require_valid_voice(
+        active,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
     return compile_contract(
         active,
         profile=profile,
@@ -68,6 +123,13 @@ def lint_voice_text(
     include_global: bool = True,
 ) -> list[LintIssue]:
     active = contract or load_voice(start=start, path=path, include_global=include_global)
+    require_valid_voice(
+        active,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
     return lint_text(
         active,
         text,

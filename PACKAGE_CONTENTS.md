@@ -1,6 +1,6 @@
 # VoiceMD release pack contents
 
-This repository is the complete `0.1.0-draft.1` independent draft and reference implementation of the VOICE.md Agent Communication Contract.
+This repository is the complete `0.1.0-draft.2` independent draft and Python reference implementation `0.1.0a2` of the VOICE.md Agent Communication Contract.
 
 ## Standard and governance
 
@@ -23,19 +23,19 @@ This repository is the complete `0.1.0-draft.1` independent draft and reference 
 
 The Python package under `src/voicemd/` provides:
 
-- hierarchical discovery and explicit source selection;
-- local `extends` with cycle/depth protection;
+- hierarchical discovery and explicit source selection with approved-root containment;
+- local `extends` with symlink-safe containment, cycle/depth protection, and source/YAML resource budgets;
 - deterministic deep merge and ID-based rule/test overrides;
-- audience, surface, tone, and profile selection;
-- prompt, compact, JSON, canonical JSON/SHA-256, ASCII, and Nemotron compilation;
-- schema and semantic validation;
-- deterministic linting and inline conformance tests;
+- audience, surface, tone, and profile selection with fail-closed validation of the exact selected contract;
+- prompt, compact, JSON, RFC 8785 canonical JSON/SHA-256, ASCII, and Nemotron compilation;
+- YAML 1.2 JSON-subset parsing plus schema and semantic validation;
+- deterministic `portable-safe-v1` linting and inline conformance tests;
 - safe managed adapter installation and uninstall ownership tracking;
 - provider-neutral HTTP sidecar.
 
 The CLI commands are `init`, `discover`, `validate`, `compile`, `lint`, `test`, `install`, `uninstall`, `doctor`, and `serve`.
 
-A prebuilt pure-Python wheel is included under `release/`. It is publishable only when `release/BUILD_INFO.json` says `artifact_status: current` and the release verifier passes; development checkouts may deliberately mark old artifacts `stale`. Source installation remains available through `pyproject.toml`.
+A release build may place the pure-Python wheel `voicemd-0.1.0a2-py3-none-any.whl` under `release/`. Treat it as current only when the file exists, `release/BUILD_INFO.json` says `artifact_status: current`, and the release verifier passes; development checkouts may deliberately contain no wheel or mark old artifacts `stale`. Source installation remains available through `pyproject.toml`.
 
 ## Harness adapters
 
@@ -73,11 +73,22 @@ The canonical on-demand skill is under `.agents/skills/voice-contract/SKILL.md`;
 ## Evaluation and QA
 
 - `evals/`: prompts, rubric, judge prompt, Azure/OpenAI-compatible runner, deterministic scorer, and model-judge runner.
+- `conformance/vectors.json`: language-neutral vectors for merge, selection, compact rendering, RFC 8785 JCS, and SHA-256 behavior.
+- `integrations/typescript/generated/conformance-verifier.js`: core verifier independent of the Python compiler; it is not a complete second YAML/discovery/runtime implementation.
 - `tests/`: unit and regression suite covering discovery, resolution, merge, compilation, profile precedence, prompt budgets, linting, evaluation, and safe adapter lifecycle.
 - `.github/workflows/ci.yml`: CI workflow.
-- `scripts/build_release.py`: hermetic Git-tracked deterministic source ZIP builder.
-- `scripts/verify_release.py`: release integrity and smoke verifier.
+- `scripts/build_release.py`: Git-object-backed deterministic source ZIP builder, release metadata generator, and canonical setuptools sdist normalizer.
+- `scripts/verify_release.py`: metadata-first release integrity verifier. Optional clean-install and smoke execution requires the explicit `--trusted-runtime-checks` flag and is only for self-built or otherwise trusted artifacts; it is not a sandbox.
 - `release/SHA256SUMS`: artifact checksums.
+
+Run the language-neutral core vectors with:
+
+```bash
+node integrations/typescript/generated/conformance-verifier.js \
+  conformance/vectors.json
+```
+
+The Azure eval transport requires HTTPS, reads keys only from the environment or an environment file, and rejects redirects. Candidate and judge records are bound to canonical corpus, case, contract, request, and response hashes; secrets and endpoint URLs are not result fields.
 
 ## Dependency-free path
 
@@ -97,3 +108,7 @@ The canonical on-demand skill is under `.agents/skills/voice-contract/SKILL.md`;
 - `docs/BRAND_COMPATIBILITY.md`: relationship to copy/brand-oriented voice files.
 - `docs/REFERENCES.md`: primary official sources and prior art.
 - `docs/decisions/`: architecture decision records.
+
+## External validation status
+
+The package is self-contained, but external ecosystem evidence remains incomplete. No vendor or standards body has adopted the format. Project metadata does not yet identify a canonical public remote or published canonical schema URL. The TypeScript verifier is bundled project code, not an external full implementation. No independent security review is published, and the roadmap target of ten independent real-world contracts remains open.

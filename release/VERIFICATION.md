@@ -1,4 +1,6 @@
-# Verification record — 2026-08-24
+# Historical verification record — 2026-08-24
+
+This record applies only to the stale `0.1.0a1` artifacts and does not verify the current source tree.
 
 Package `0.1.0a1` was built from a fresh local clone of source revision `f58043470422a27c4b15eab1d3506cfd2283cb68`. `release/BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash.
 

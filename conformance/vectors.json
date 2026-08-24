@@ -1,0 +1,1496 @@
+{
+  "suite": "VoiceMD core conformance vectors",
+  "suite_version": "0.1.0",
+  "specification": "0.1",
+  "vectors": {
+    "merge": [
+      {
+        "id": "merge-null-delete-and-replace",
+        "append_unique_arrays": true,
+        "base": {
+          "response": {
+            "max_words": 120,
+            "opening": "Lead with the conclusion.",
+            "softening": "low"
+          },
+          "language": {
+            "allowed": [
+              "en",
+              "de"
+            ]
+          },
+          "metadata": {
+            "owner": "team-a"
+          }
+        },
+        "override": {
+          "response": {
+            "max_words": 60,
+            "softening": null
+          },
+          "language": {
+            "allowed": [
+              "fr"
+            ]
+          },
+          "metadata": null
+        },
+        "expected": {
+          "response": {
+            "max_words": 60,
+            "opening": "Lead with the conclusion."
+          },
+          "language": {
+            "allowed": [
+              "en",
+              "de",
+              "fr"
+            ]
+          }
+        }
+      },
+      {
+        "id": "merge-id-arrays-update-disable-add",
+        "append_unique_arrays": true,
+        "base": {
+          "activation": {
+            "include": [
+              "chat"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "hype"
+            ]
+          },
+          "rules": [
+            {
+              "id": "direct",
+              "severity": "warning",
+              "message": "old",
+              "tags": [
+                "base"
+              ]
+            },
+            {
+              "id": "remove",
+              "instruction": "Remove me."
+            }
+          ],
+          "tests": [
+            {
+              "id": "smoke",
+              "prompt": "Old prompt",
+              "assertions": {
+                "max_words": 10
+              }
+            },
+            {
+              "id": "delete",
+              "response": "ASCII",
+              "assertions": {
+                "ascii_only": true
+              }
+            }
+          ]
+        },
+        "override": {
+          "activation": {
+            "include": [
+              "chat",
+              "document"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "hype",
+              "synergy"
+            ]
+          },
+          "rules": [
+            {
+              "id": "direct",
+              "severity": "error",
+              "message": null,
+              "tags": [
+                "override"
+              ]
+            },
+            {
+              "id": "remove",
+              "disabled": true
+            },
+            {
+              "id": "new",
+              "instruction": "State uncertainty."
+            }
+          ],
+          "tests": [
+            {
+              "id": "smoke",
+              "prompt": null,
+              "response": "Short.",
+              "assertions": {
+                "max_words": 5
+              }
+            },
+            {
+              "id": "delete",
+              "disabled": true
+            }
+          ]
+        },
+        "expected": {
+          "activation": {
+            "include": [
+              "chat",
+              "document"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "hype",
+              "synergy"
+            ]
+          },
+          "rules": [
+            {
+              "id": "direct",
+              "severity": "error",
+              "tags": [
+                "override"
+              ]
+            },
+            {
+              "id": "new",
+              "instruction": "State uncertainty."
+            }
+          ],
+          "tests": [
+            {
+              "id": "smoke",
+              "assertions": {
+                "max_words": 5
+              },
+              "response": "Short."
+            }
+          ]
+        }
+      },
+      {
+        "id": "selector-overlay-replaces-additive-array",
+        "append_unique_arrays": false,
+        "base": {
+          "language": {
+            "allowed": [
+              "en",
+              "de"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "hype"
+            ]
+          }
+        },
+        "override": {
+          "language": {
+            "allowed": [
+              "fr"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "jargon"
+            ]
+          }
+        },
+        "expected": {
+          "language": {
+            "allowed": [
+              "fr"
+            ]
+          },
+          "lexicon": {
+            "forbidden": [
+              "jargon"
+            ]
+          }
+        }
+      },
+      {
+        "id": "source-merge-preserves-dormant-selector-null",
+        "append_unique_arrays": true,
+        "base": {},
+        "override": {
+          "response": {
+            "opening": "Inherited"
+          },
+          "profiles": {
+            "short": {
+              "overrides": {
+                "response": {
+                  "opening": null,
+                  "max_words": 40
+                }
+              }
+            }
+          }
+        },
+        "expected": {
+          "response": {
+            "opening": "Inherited"
+          },
+          "profiles": {
+            "short": {
+              "overrides": {
+                "response": {
+                  "opening": null,
+                  "max_words": 40
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "source-merge-preserves-dormant-id-tombstone",
+        "append_unique_arrays": true,
+        "base": {
+          "rules": [
+            {
+              "id": "inherited",
+              "instruction": "Base rule"
+            }
+          ],
+          "profiles": {
+            "clear": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "instruction": "Earlier selector rule"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "override": {
+          "profiles": {
+            "clear": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "disabled": true
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "expected": {
+          "rules": [
+            {
+              "id": "inherited",
+              "instruction": "Base rule"
+            }
+          ],
+          "profiles": {
+            "clear": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "disabled": true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "source-merge-reenables-dormant-id-tombstone",
+        "append_unique_arrays": true,
+        "base": {
+          "profiles": {
+            "selected": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "disabled": true
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "override": {
+          "profiles": {
+            "selected": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "instruction": "Later source"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "expected": {
+          "profiles": {
+            "selected": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited",
+                    "instruction": "Later source"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    ],
+    "selection": [
+      {
+        "id": "selected-id-tombstones-remove-inherited-items",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Selected ID deletions",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "rules": [
+            {
+              "id": "inherited-rule",
+              "instruction": "Remove me"
+            }
+          ],
+          "tests": [
+            {
+              "id": "inherited-test",
+              "response": "remove",
+              "assertions": {
+                "max_words": 1
+              }
+            }
+          ],
+          "examples": [
+            {
+              "id": "inherited-example",
+              "description": "Remove me"
+            }
+          ],
+          "profiles": {
+            "clear": {
+              "overrides": {
+                "rules": [
+                  {
+                    "id": "inherited-rule",
+                    "disabled": true
+                  }
+                ],
+                "tests": [
+                  {
+                    "id": "inherited-test",
+                    "disabled": true
+                  }
+                ],
+                "examples": [
+                  {
+                    "id": "inherited-example",
+                    "disabled": true
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "selectors": {
+          "profile": "clear"
+        },
+        "expected_active": {
+          "profile": "clear",
+          "audience": null,
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/rules": [],
+          "/tests": [],
+          "/examples": []
+        },
+        "expected_absent": []
+      },
+      {
+        "id": "default-profile-selector-precedence",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Selector precedence",
+          "default_language": "en",
+          "response": {
+            "opening": "base",
+            "max_words": 120
+          },
+          "language": {
+            "allowed": [
+              "en",
+              "de"
+            ],
+            "match_user": true
+          },
+          "audiences": {
+            "engineer": {
+              "response": {
+                "opening": "audience",
+                "examples": "technical"
+              }
+            },
+            "legal": {
+              "response": {
+                "opening": "legal",
+                "examples": "legal"
+              }
+            }
+          },
+          "surfaces": {
+            "chat": {
+              "response": {
+                "opening": "surface",
+                "max_words": 70
+              },
+              "language": {
+                "allowed": [
+                  "en"
+                ]
+              }
+            },
+            "email": {
+              "response": {
+                "structure": "email"
+              }
+            }
+          },
+          "tones": {
+            "direct": {
+              "response": {
+                "opening": "tone",
+                "softening": "low"
+              }
+            },
+            "warm": {
+              "response": {
+                "softening": "medium"
+              }
+            }
+          },
+          "profiles": {
+            "default": {
+              "audience": "engineer",
+              "surface": "chat",
+              "tone": "direct",
+              "overrides": {
+                "response": {
+                  "opening": "profile",
+                  "max_words": 40
+                },
+                "language": {
+                  "match_user": false
+                }
+              }
+            }
+          }
+        },
+        "selectors": {},
+        "expected_active": {
+          "profile": "default",
+          "audience": "engineer",
+          "surface": "chat",
+          "tone": "direct"
+        },
+        "expected_values": {
+          "/response/opening": "profile",
+          "/response/max_words": 40,
+          "/response/examples": "technical",
+          "/response/softening": "low",
+          "/language/default": "en",
+          "/language/allowed": [
+            "en"
+          ],
+          "/language/match_user": false
+        },
+        "expected_absent": [
+          "/default_language"
+        ]
+      },
+      {
+        "id": "explicit-selectors-beat-profile-selector-defaults",
+        "contract_ref": "default-profile-selector-precedence",
+        "selectors": {
+          "profile": "default",
+          "audience": "legal",
+          "surface": "email",
+          "tone": "warm"
+        },
+        "expected_active": {
+          "profile": "default",
+          "audience": "legal",
+          "surface": "email",
+          "tone": "warm"
+        },
+        "expected_values": {
+          "/response/opening": "profile",
+          "/response/max_words": 40,
+          "/response/examples": "legal",
+          "/response/structure": "email",
+          "/response/softening": "medium",
+          "/language/default": "en",
+          "/language/allowed": [
+            "en",
+            "de"
+          ],
+          "/language/match_user": false
+        },
+        "expected_absent": [
+          "/default_language"
+        ]
+      },
+      {
+        "id": "selector-null-deletes-inherited-key",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Selector null deletion",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "response": {
+            "opening": "Base opening",
+            "structure": "Keep structure"
+          },
+          "surfaces": {
+            "chat": {
+              "response": {
+                "opening": null,
+                "max_words": 40
+              }
+            }
+          }
+        },
+        "selectors": {
+          "surface": "chat"
+        },
+        "expected_active": {
+          "profile": null,
+          "audience": null,
+          "surface": "chat",
+          "tone": null
+        },
+        "expected_values": {
+          "/response/structure": "Keep structure",
+          "/response/max_words": 40
+        },
+        "expected_absent": [
+          "/response/opening"
+        ]
+      },
+      {
+        "id": "zero-width-space-selector-is-nonblank",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Portable selector whitespace",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "audiences": {
+            "\u200b": {
+              "response": {
+                "opening": "Selected"
+              }
+            }
+          }
+        },
+        "selectors": {
+          "audience": "\u200b"
+        },
+        "expected_active": {
+          "profile": null,
+          "audience": "\u200b",
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/response/opening": "Selected"
+        },
+        "expected_absent": []
+      },
+      {
+        "id": "control-separator-selector-is-nonblank",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Portable selector whitespace boundary",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "audiences": {
+            "\u001c": {
+              "response": {
+                "opening": "Selected"
+              }
+            }
+          }
+        },
+        "selectors": {
+          "audience": "\u001c"
+        },
+        "expected_active": {
+          "profile": null,
+          "audience": "\u001c",
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/response/opening": "Selected"
+        },
+        "expected_absent": []
+      },
+      {
+        "id": "profile-default-language-alias-normalizes-after-selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Selected legacy language alias",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "profiles": {
+            "french": {
+              "overrides": {
+                "default_language": "fr",
+                "language": {
+                  "allowed": [
+                    "fr"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "selectors": {
+          "profile": "french"
+        },
+        "expected_active": {
+          "profile": "french",
+          "audience": null,
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/language/default": "fr",
+          "/language/allowed": [
+            "fr"
+          ],
+          "/profiles/french/overrides/language/default": "fr"
+        },
+        "expected_absent": [
+          "/default_language",
+          "/profiles/french/overrides/default_language"
+        ]
+      },
+      {
+        "id": "selector-default-language-null-deletes-canonical-field",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Selected legacy language tombstone",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "language": {
+            "default": "en",
+            "allowed": [
+              "en"
+            ]
+          },
+          "profiles": {
+            "clear": {
+              "overrides": {
+                "default_language": null
+              }
+            }
+          }
+        },
+        "selectors": {
+          "profile": "clear"
+        },
+        "expected_active": {
+          "profile": "clear",
+          "audience": null,
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/language/allowed": [
+            "en"
+          ]
+        },
+        "expected_absent": [
+          "/default_language",
+          "/language/default",
+          "/profiles/clear/overrides/default_language"
+        ]
+      },
+      {
+        "id": "executable-integral-json-numbers-normalize",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Portable executable integers",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "response": {
+            "max_words": 1e0,
+            "max_sentences": 2.0
+          },
+          "runtime": {
+            "max_prompt_chars": 256e0
+          },
+          "tests": [
+            {
+              "id": "integral",
+              "response": "one",
+              "assertions": {
+                "max_words": 1.0
+              }
+            }
+          ]
+        },
+        "selectors": {},
+        "expected_active": {
+          "profile": null,
+          "audience": null,
+          "surface": null,
+          "tone": null
+        },
+        "expected_values": {
+          "/response/max_words": 1,
+          "/response/max_sentences": 2,
+          "/runtime/max_prompt_chars": 256,
+          "/tests/0/assertions/max_words": 1
+        },
+        "expected_absent": []
+      }
+    ],
+    "canonical": [
+      {
+        "id": "jcs-numbers-utf16-and-body-normalization",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "JCS",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "metadata": {
+            "n": 1.0,
+            "z": -0.0,
+            "\ue000": 1,
+            "\ud800\udc00": 2
+          }
+        },
+        "bodies": [
+          "\r\n First line \r\n",
+          "   ",
+          "Second\rline"
+        ],
+        "selectors": {},
+        "expected_canonical": "{\"active\":{\"audience\":null,\"profile\":null,\"surface\":null,\"tone\":null},\"contract\":{\"identity\":{\"sounds_like\":[\"Direct\"]},\"kind\":\"VoiceContract\",\"metadata\":{\"n\":1,\"z\":0,\"𐀀\":2,\"\":1},\"name\":\"JCS\",\"voice_spec\":\"0.1\"},\"markdown_bodies\":[\"First line\",\"Second\\nline\"]}",
+        "expected_sha256": "ea8cf0442488d7ea717a81738448d38ef7b5e3ad64bb2699b18126e5f36d31cc"
+      },
+      {
+        "id": "jcs-safe-integer-boundaries-and-exact-body-trim",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "JCS safe integer boundaries",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "metadata": {
+            "maximum_safe_integer": 9007199254740991,
+            "minimum_safe_integer": -9007199254740991
+          }
+        },
+        "bodies": [
+          " \t\u0085Boundary body\u0085\t "
+        ],
+        "selectors": {},
+        "expected_canonical": "{\"active\":{\"audience\":null,\"profile\":null,\"surface\":null,\"tone\":null},\"contract\":{\"identity\":{\"sounds_like\":[\"Direct\"]},\"kind\":\"VoiceContract\",\"metadata\":{\"maximum_safe_integer\":9007199254740991,\"minimum_safe_integer\":-9007199254740991},\"name\":\"JCS safe integer boundaries\",\"voice_spec\":\"0.1\"},\"markdown_bodies\":[\"\u0085Boundary body\u0085\"]}",
+        "expected_sha256": "88130812c4032c2c1ccdac39686ecc8a850e8b125478b1086f94fc68a6b1145a"
+      }
+    ],
+    "compact": [
+      {
+        "id": "compact-selected-contract",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Compact",
+          "identity": {
+            "sounds_like": [
+              "Direct",
+              "Calm"
+            ],
+            "traits": [
+              "Precise"
+            ]
+          },
+          "response": {
+            "conclusion_first": true,
+            "max_words": 60,
+            "opening": "Lead"
+          },
+          "language": {
+            "default": "en",
+            "allowed": [
+              "en"
+            ]
+          },
+          "formatting": {
+            "headings": "minimal",
+            "avoid": [
+              "emoji",
+              "tables"
+            ]
+          },
+          "surfaces": {
+            "chat": {
+              "response": {
+                "opening": "Chat opening"
+              }
+            }
+          },
+          "profiles": {
+            "brief": {
+              "surface": "chat",
+              "overrides": {
+                "response": {
+                  "max_words": 30
+                },
+                "formatting": {
+                  "headings": "none"
+                }
+              }
+            }
+          },
+          "rules": [
+            {
+              "id": "no-hype",
+              "instruction": "Avoid hype."
+            }
+          ]
+        },
+        "bodies": [
+          "  Keep examples concrete.  "
+        ],
+        "selectors": {
+          "profile": "brief"
+        },
+        "expected": "VOICE CONTRACT. Apply only to human-facing natural language.\nHigher-priority safety, policy, factual, tool, and output-schema instructions win.\nidentity.sounds_like=Direct; Calm\nidentity.traits=Precise\nresponse.conclusion_first=yes\nresponse.max_words=30\nresponse.opening=Chat opening\nlanguage.default=en\nlanguage.allowed=en\nformatting.headings=none\nformatting.avoid=emoji; tables\nrule.no-hype=Avoid hype.\nAdditional guidance:\nKeep examples concrete."
+      }
+    ],
+    "regex": [
+      {
+        "id": "regex-ascii-case-insensitive",
+        "pattern": "forbidden",
+        "flags": [
+          "i"
+        ],
+        "text": "FORBIDDEN",
+        "expected_match": true
+      },
+      {
+        "id": "regex-ascii-fold-does-not-fold-kelvin-sign",
+        "pattern": "k",
+        "flags": [
+          "i"
+        ],
+        "text": "\u212a",
+        "expected_match": false
+      },
+      {
+        "id": "regex-normalizes-all-line-terminators-for-multiline",
+        "pattern": "^target$",
+        "flags": [
+          "m"
+        ],
+        "text": "alpha\r\nbeta\rgamma\u2028target\u2029omega",
+        "expected_match": true
+      },
+      {
+        "id": "regex-dot-excludes-normalized-line-break",
+        "pattern": "a.b",
+        "flags": [],
+        "text": "a\rb",
+        "expected_match": false
+      },
+      {
+        "id": "regex-dotall-includes-normalized-line-break",
+        "pattern": "a.b",
+        "flags": [
+          "s"
+        ],
+        "text": "a\u2029b",
+        "expected_match": true
+      }
+    ],
+    "assertions": [
+      {
+        "id": "assertion-must-contain-ascii-fold",
+        "response": "ALPHA result",
+        "assertions": {
+          "must_contain": [
+            "alpha"
+          ]
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-must-contain-does-not-unicode-fold",
+        "response": "Stra\u00dfe and \u212a",
+        "assertions": {
+          "must_contain": [
+            "STRASSE"
+          ]
+        },
+        "expected_pass": false
+      },
+      {
+        "id": "assertion-must-not-contain-ascii-fold",
+        "response": "FORBIDDEN",
+        "assertions": {
+          "must_not_contain": [
+            "forbidden"
+          ]
+        },
+        "expected_pass": false
+      },
+      {
+        "id": "assertion-max-words-portable-separators-pass",
+        "response": "one,two THREE_four \u0420\u0443\u0441\u0441\u043a\u0438\u0439\u4e2d\u6587",
+        "assertions": {
+          "max_words": 5
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-max-words-portable-separators-fail",
+        "response": "one,two THREE_four \u0420\u0443\u0441\u0441\u043a\u0438\u0439\u4e2d\u6587",
+        "assertions": {
+          "max_words": 4
+        },
+        "expected_pass": false
+      },
+      {
+        "id": "assertion-non-ascii-punctuation-is-not-a-separator",
+        "response": "alpha\u2014beta",
+        "assertions": {
+          "max_words": 1
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-ascii-apostrophe-is-a-separator",
+        "response": "can't",
+        "assertions": {
+          "max_words": 2
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-ascii-only-pass",
+        "response": "ASCII\nonly",
+        "assertions": {
+          "ascii_only": true
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-ascii-only-fail",
+        "response": "caf\u00e9",
+        "assertions": {
+          "ascii_only": true
+        },
+        "expected_pass": false
+      },
+      {
+        "id": "assertion-ascii-only-false-is-no-op",
+        "response": "caf\u00e9",
+        "assertions": {
+          "ascii_only": false,
+          "max_words": 1
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-zero-words-empty-response",
+        "response": "",
+        "assertions": {
+          "max_words": 0
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-integral-exponent-max-words",
+        "response": "one",
+        "assertions": {
+          "max_words": 1e0
+        },
+        "expected_pass": true
+      },
+      {
+        "id": "assertion-false-only-is-vacuous",
+        "response": "anything",
+        "assertions": {
+          "ascii_only": false
+        },
+        "expected_pass": false
+      },
+      {
+        "id": "assertion-empty-and-extension-only-is-vacuous",
+        "response": "anything",
+        "assertions": {
+          "must_contain": [],
+          "x-note": "No core assertion"
+        },
+        "expected_pass": false
+      }
+    ],
+    "invalid": [
+      {
+        "id": "invalid-unknown-profile",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Invalid selector",
+          "profiles": {}
+        },
+        "selectors": {
+          "profile": "missing"
+        },
+        "expected_error": "unknown-profile"
+      },
+      {
+        "id": "invalid-profile-overrides-type",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Invalid override",
+          "profiles": {
+            "bad": {
+              "overrides": "not-an-object"
+            }
+          }
+        },
+        "selectors": {
+          "profile": "bad"
+        },
+        "expected_error": "profile-overrides-not-object"
+      },
+      {
+        "id": "invalid-empty-runtime-selector",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Empty runtime selector",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          }
+        },
+        "selectors": {
+          "profile": " \t "
+        },
+        "expected_error": "empty-selector"
+      },
+      {
+        "id": "invalid-empty-selector-name",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Empty selector name",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "audiences": {
+            " ": {
+              "response": {
+                "opening": "Never selectable"
+              }
+            }
+          }
+        },
+        "selectors": {},
+        "expected_error": "empty-selector"
+      },
+      {
+        "id": "invalid-nel-only-selector-name",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unicode whitespace selector",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "audiences": {
+            "\u0085": {
+              "response": {
+                "opening": "Never selectable"
+              }
+            }
+          }
+        },
+        "selectors": {},
+        "expected_error": "empty-selector"
+      },
+      {
+        "id": "invalid-selected-default-language-conflict",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Conflicting selected language alias",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "profiles": {
+            "bad": {
+              "overrides": {
+                "default_language": "fr",
+                "language": {
+                  "default": "en"
+                }
+              }
+            }
+          }
+        },
+        "selectors": {
+          "profile": "bad"
+        },
+        "expected_error": "default-language-conflict"
+      },
+      {
+        "id": "invalid-inherited-default-language-conflict",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Inherited language alias conflict",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "language": {
+            "default": "en"
+          },
+          "profiles": {
+            "bad": {
+              "overrides": {
+                "default_language": "fr"
+              }
+            }
+          }
+        },
+        "selectors": {
+          "profile": "bad"
+        },
+        "expected_error": "default-language-conflict"
+      },
+      {
+        "id": "invalid-response-max-words-above-safe-integer",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe response word limit",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "response": {
+            "max_words": 9007199254740992
+          }
+        },
+        "selectors": {},
+        "expected_error": "invalid-executable-integer"
+      },
+      {
+        "id": "invalid-response-max-sentences-negative",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Negative response sentence limit",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "response": {
+            "max_sentences": -1
+          }
+        },
+        "selectors": {},
+        "expected_error": "invalid-executable-integer"
+      },
+      {
+        "id": "invalid-runtime-prompt-budget-below-minimum",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Small runtime prompt budget",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "runtime": {
+            "max_prompt_chars": 255
+          }
+        },
+        "selectors": {},
+        "expected_error": "invalid-executable-integer"
+      },
+      {
+        "id": "invalid-assertion-max-words-fractional",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Fractional assertion word limit",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "tests": [
+            {
+              "id": "fractional",
+              "response": "one",
+              "assertions": {
+                "max_words": 0.5
+              }
+            }
+          ]
+        },
+        "selectors": {},
+        "expected_error": "invalid-executable-integer"
+      },
+      {
+        "id": "invalid-empty-profile-selector-reference",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Empty profile selector reference",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "profiles": {
+            "unused": {
+              "surface": " \t "
+            }
+          }
+        },
+        "selectors": {},
+        "expected_error": "empty-selector"
+      },
+      {
+        "id": "invalid-empty-test-selector-reference",
+        "operation": "selection",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Empty test selector reference",
+          "identity": {
+            "sounds_like": [
+              "Direct"
+            ]
+          },
+          "tests": [
+            {
+              "id": "bad-selector",
+              "response": "Response",
+              "surface": " ",
+              "assertions": {
+                "max_words": 1
+              }
+            }
+          ]
+        },
+        "selectors": {},
+        "expected_error": "empty-selector"
+      },
+      {
+        "id": "invalid-jcs-integer-above-safe-range",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe integer",
+          "metadata": {
+            "value": 9007199254740992
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-negative-integer-outside-safe-range",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe negative integer",
+          "metadata": {
+            "value": -9007199254740992
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-integer-power-60",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe integer",
+          "metadata": {
+            "value": 1152921504606846976
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-integer-1e20-lexeme",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe integer exponent",
+          "metadata": {
+            "value": 1e20
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-integer-1e21-lexeme",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe integer exponent",
+          "metadata": {
+            "value": 1e21
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-integer-1e30-lexeme",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Unsafe integer exponent",
+          "metadata": {
+            "value": 1e30
+          }
+        },
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "non-ijson-number"
+      },
+      {
+        "id": "invalid-jcs-lone-surrogate",
+        "operation": "canonical",
+        "contract": {
+          "voice_spec": "0.1",
+          "kind": "VoiceContract",
+          "name": "Lone surrogate",
+          "metadata": {
+            "value": null
+          }
+        },
+        "encoded_values": [
+          {
+            "pointer": "/metadata/value",
+            "utf16_code_units": [
+              55296
+            ]
+          }
+        ],
+        "bodies": [],
+        "selectors": {},
+        "expected_error": "invalid-unicode"
+      }
+    ]
+  }
+}

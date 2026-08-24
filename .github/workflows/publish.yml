@@ -1,0 +1,174 @@
+name: Publish Python release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-attest:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: integrations/typescript/package-lock.json
+      - name: Read the committed release identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          data = json.loads(Path("release/BUILD_INFO.json").read_text(encoding="utf-8"))
+          if data.get("artifact_status") != "current":
+              raise SystemExit("release/BUILD_INFO.json does not mark artifacts current")
+          revision = re.compile(r"[0-9a-f]{40}")
+          source_revision = data.get("source_revision")
+          release_revision = data.get("release_revision")
+          if not isinstance(source_revision, str) or not revision.fullmatch(source_revision):
+              raise SystemExit("invalid source_revision in BUILD_INFO.json")
+          if not isinstance(release_revision, str) or not revision.fullmatch(release_revision):
+              raise SystemExit("invalid release_revision in BUILD_INFO.json")
+          artifacts = data.get("artifacts")
+          if not isinstance(artifacts, dict):
+              raise SystemExit("invalid artifacts in BUILD_INFO.json")
+          package_version = data.get("package_version")
+          if not isinstance(package_version, str) or not re.fullmatch(
+              r"[A-Za-z0-9][A-Za-z0-9.!+_-]*", package_version
+          ):
+              raise SystemExit("unsafe package_version in BUILD_INFO.json")
+          if any(
+              not isinstance(name, str)
+              or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", name)
+              for name in artifacts
+          ):
+              raise SystemExit("unsafe artifact name in BUILD_INFO.json")
+          wheels = [name for name in artifacts if name.endswith(".whl")]
+          sdists = [name for name in artifacts if name.endswith(".tar.gz")]
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit("BUILD_INFO.json must name one wheel and one sdist")
+          values = {
+              "PACKAGE_VERSION": package_version,
+              "RELEASE_METADATA_REVISION": release_revision,
+              "SDIST_NAME": sdists[0],
+              "SOURCE_REVISION": source_revision,
+              "WHEEL_NAME": wheels[0],
+          }
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as stream:
+              for key, value in values.items():
+                  stream.write(f"{key}={value}\n")
+          PY
+      - name: Require the tag to match the package version
+        run: test "$GITHUB_REF_NAME" = "v$PACKAGE_VERSION"
+      - name: Require recorded commits to exist
+        run: |
+          git cat-file -e "${SOURCE_REVISION}^{commit}"
+          git cat-file -e "${RELEASE_METADATA_REVISION}^{commit}"
+          git merge-base --is-ancestor "$SOURCE_REVISION" HEAD
+          git merge-base --is-ancestor "$RELEASE_METADATA_REVISION" HEAD
+      - run: python -m pip install --requirement constraints/build.txt
+      - run: python -m pip install --constraint constraints/build.txt --no-build-isolation -e '.[dev]' 'twine>=6,<7'
+      - run: python -m pip check
+      - run: ruff check .
+      - run: python -m pytest
+      - run: npm --prefix integrations/typescript ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix integrations/typescript run check
+      - run: npm --prefix integrations/typescript run build:conformance
+      - run: git diff --exit-code -- integrations/typescript/generated
+      - run: node integrations/typescript/generated/conformance-verifier.js conformance/vectors.json
+      - name: Verify the complete committed release metadata without execution
+        run: |
+          python scripts/build_release.py --output /tmp/committed-release.zip
+          python scripts/verify_release.py /tmp/committed-release.zip
+      - name: Use the source commit epoch
+        run: |
+          epoch="$(git show -s --format=%ct "$SOURCE_REVISION")"
+          echo "SOURCE_DATE_EPOCH=$epoch" >> "$GITHUB_ENV"
+      - run: python -m build --no-isolation --outdir /tmp/dist-a
+      - run: python -m build --no-isolation --outdir /tmp/dist-b
+      - run: python scripts/build_release.py --normalize-sdist "/tmp/dist-a/$SDIST_NAME"
+      - run: python scripts/build_release.py --normalize-sdist "/tmp/dist-b/$SDIST_NAME"
+      - name: Require reproducible wheel and sdist bytes
+        run: |
+          test "$(find /tmp/dist-a -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+          test "$(find /tmp/dist-b -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+          cmp "/tmp/dist-a/$WHEEL_NAME" "/tmp/dist-b/$WHEEL_NAME"
+          cmp "/tmp/dist-a/$SDIST_NAME" "/tmp/dist-b/$SDIST_NAME"
+      - name: Require exact equality with committed release artifacts
+        run: |
+          cmp "/tmp/dist-a/$WHEEL_NAME" "release/$WHEEL_NAME"
+          cmp "/tmp/dist-a/$SDIST_NAME" "release/$SDIST_NAME"
+      - name: Verify committed distributions, SBOM, and provenance
+        run: python scripts/verify_release.py --distributions /tmp/dist-a --metadata release --source-root . --source-revision "$SOURCE_REVISION" --release-revision "$RELEASE_METADATA_REVISION"
+      - name: Stage only the byte-identical verified distributions
+        run: mkdir dist && cp "release/$WHEEL_NAME" "release/$SDIST_NAME" dist/
+      - run: python -m twine check dist/*
+      - name: Sign GitHub build-provenance attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Sign GitHub SBOM attestation
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+          sbom-path: release/SBOM.spdx.json
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+      - name: Upload deterministic release metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-metadata
+          path: |
+            release/BUILD_INFO.json
+            release/PROVENANCE.intoto.jsonl
+            release/SBOM.spdx.json
+            release/SHA256SUMS
+            release/VERIFICATION.md
+          if-no-files-found: error
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: build-and-attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/voicemd
+    permissions:
+      id-token: write
+    steps:
+      - name: Download verified distributions
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

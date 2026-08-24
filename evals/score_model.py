@@ -12,12 +12,36 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from voicemd import compile_voice, contract_sha256, load_voice
+from voicemd import load_voice
 
 try:
-    from .run_openai_compatible import call, load_env_file, read_jsonl, strict_json_loads
+    from .run_openai_compatible import (
+        MAX_AUXILIARY_FILE_BYTES,
+        add_secret_argument_guards,
+        call,
+        corpus_sha256,
+        environment_flag,
+        load_env_file,
+        read_bounded_text,
+        read_jsonl,
+        strict_json_loads,
+        validate_candidate_result,
+        validate_endpoint_policy,
+    )
 except ImportError:  # Direct script execution sets no package context.
-    from run_openai_compatible import call, load_env_file, read_jsonl, strict_json_loads
+    from run_openai_compatible import (
+        MAX_AUXILIARY_FILE_BYTES,
+        add_secret_argument_guards,
+        call,
+        corpus_sha256,
+        environment_flag,
+        load_env_file,
+        read_bounded_text,
+        read_jsonl,
+        strict_json_loads,
+        validate_candidate_result,
+        validate_endpoint_policy,
+    )
 
 
 def parse_judgment(text: str, dimension_ids: list[str]) -> dict[str, object]:
@@ -62,6 +86,7 @@ def main() -> int:
     parser.add_argument("--env-file", default=pre_args.env_file)
     parser.add_argument("--no-env-file", action="store_true")
     parser.add_argument("--results", required=True)
+    parser.add_argument("--cases", default="evals/prompts.jsonl")
     parser.add_argument("--output", default="evals/model-scores.jsonl")
     parser.add_argument("--voice", default="VOICE.md")
     parser.add_argument("--judge-prompt", default="evals/judge_prompt.md")
@@ -75,7 +100,6 @@ def main() -> int:
     parser.add_argument(
         "--base-url", default=os.getenv("VOICEMD_BASE_URL", "http://127.0.0.1:8000/v1")
     )
-    parser.add_argument("--api-key", default=os.getenv("VOICEMD_API_KEY", ""))
     parser.add_argument("--model", default=os.getenv("VOICEMD_JUDGE_MODEL", "local-model"))
     parser.add_argument("--azure-endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
     parser.add_argument(
@@ -89,10 +113,14 @@ def main() -> int:
         "--azure-api-version",
         default=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
     )
-    parser.add_argument("--azure-api-key", default=os.getenv("AZURE_OPENAI_API_KEY", ""))
+    add_secret_argument_guards(parser)
     parser.add_argument(
-        "--reasoning-effort", default=os.getenv("AZURE_OPENAI_REASONING_EFFORT")
+        "--allow-insecure-http",
+        action="store_true",
+        default=environment_flag("VOICEMD_ALLOW_INSECURE_HTTP"),
+        help="Allow credential-free HTTP to a non-loopback OpenAI-compatible endpoint.",
     )
+    parser.add_argument("--reasoning-effort", default=os.getenv("AZURE_OPENAI_REASONING_EFFORT"))
     judge_temperature = os.getenv("VOICEMD_JUDGE_TEMPERATURE")
     parser.add_argument(
         "--temperature",
@@ -106,19 +134,31 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if args.timeout <= 0:
-        raise ValueError("timeout must be positive")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        raise ValueError("timeout must be finite and positive")
 
     provider = args.provider
+    azure_api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+    compatible_api_key = os.getenv("VOICEMD_API_KEY", "")
     if provider == "auto":
         provider = (
             "azure"
-            if args.azure_endpoint and args.azure_deployment and args.azure_api_key
+            if args.azure_endpoint and args.azure_deployment and azure_api_key
             else "openai-compatible"
         )
     endpoint = args.azure_endpoint if provider == "azure" else args.base_url
-    api_key = args.azure_api_key if provider == "azure" else args.api_key
-    rubric_text = Path(args.rubric).read_text(encoding="utf-8")
+    api_key = azure_api_key if provider == "azure" else compatible_api_key
+    validate_endpoint_policy(
+        provider=provider,
+        endpoint=endpoint,
+        api_key=api_key,
+        allow_insecure_http=args.allow_insecure_http,
+    )
+    rubric_text = read_bounded_text(
+        Path(args.rubric),
+        max_bytes=MAX_AUXILIARY_FILE_BYTES,
+        label="rubric",
+    )
     rubric = strict_json_loads(rubric_text)
     if not isinstance(rubric, dict):
         raise TypeError("rubric must be a JSON object")
@@ -135,16 +175,59 @@ def main() -> int:
     weights = {item["id"]: float(item.get("weight", 0)) for item in dimensions}
     if not all(math.isfinite(weight) and weight > 0 for weight in weights.values()):
         raise ValueError("rubric weights must be finite and positive")
-    judge_prompt = Path(args.judge_prompt).read_text(encoding="utf-8")
+    judge_prompt = read_bounded_text(
+        Path(args.judge_prompt),
+        max_bytes=MAX_AUXILIARY_FILE_BYTES,
+        label="judge prompt",
+    )
     judge_prompt_sha256 = hashlib.sha256(judge_prompt.encode("utf-8")).hexdigest()
     rubric_sha256 = hashlib.sha256(rubric_text.encode("utf-8")).hexdigest()
-    selected_ids = set(args.case)
     contract = load_voice(path=args.voice, include_global=False)
 
     results_path = Path(args.results).expanduser().resolve()
+    cases_path = Path(args.cases).expanduser().resolve()
     output_path = Path(args.output).expanduser().resolve()
-    if output_path == results_path:
-        raise ValueError("--output must not overwrite --results")
+    protected_inputs = {
+        "--results": results_path,
+        "--cases": cases_path,
+        "--voice": Path(args.voice).expanduser().resolve(),
+        "--judge-prompt": Path(args.judge_prompt).expanduser().resolve(),
+        "--rubric": Path(args.rubric).expanduser().resolve(),
+        "--env-file": Path(args.env_file).expanduser().resolve(),
+    }
+    for input_name, input_path in protected_inputs.items():
+        if output_path == input_path:
+            raise ValueError(f"--output must not overwrite {input_name}")
+    canonical_cases = list(read_jsonl(cases_path))
+    if not canonical_cases:
+        raise ValueError("cases file contains no evaluation cases")
+    corpus_by_id = {item["id"]: item for item in canonical_cases}
+    selected_ids = set(args.case) or set(corpus_by_id)
+    unknown_selection = sorted(selected_ids - set(corpus_by_id))
+    if unknown_selection:
+        raise ValueError("unknown --case IDs: " + ", ".join(unknown_selection))
+    selected_cases = [item for item in canonical_cases if item["id"] in selected_ids]
+    candidate_results = list(read_jsonl(results_path))
+    if not candidate_results:
+        raise ValueError("results file contains no evaluation cases")
+    results_by_id = {item["id"]: item for item in candidate_results}
+    unexpected = sorted(set(results_by_id) - selected_ids)
+    if unexpected:
+        raise ValueError("unexpected result IDs: " + ", ".join(unexpected))
+    missing = sorted(selected_ids - set(results_by_id))
+    if missing:
+        raise ValueError("missing result IDs: " + ", ".join(missing))
+    expected_corpus_sha256 = corpus_sha256(canonical_cases)
+    validated_candidates = [
+        validate_candidate_result(
+            results_by_id[case["id"]],
+            expected_case=case,
+            expected_corpus_sha256=expected_corpus_sha256,
+            contract=contract,
+        )
+        for case in selected_cases
+    ]
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     completed = 0
     critical_count = 0
@@ -157,51 +240,17 @@ def main() -> int:
     temporary_path = Path(temporary_name)
     try:
         with temporary_path.open("w", encoding="utf-8") as output:
-            for item in read_jsonl(results_path):
-                if selected_ids and item["id"] not in selected_ids:
-                    continue
-                selectors = item.get("selectors")
-                if not isinstance(selectors, dict):
-                    raise TypeError(f"case {item['id']}: missing selectors provenance")
-                selector_kwargs = {
-                    key: selectors.get(key)
-                    for key in ("profile", "audience", "surface", "tone")
-                }
-                if any(
-                    value is not None and not isinstance(value, str)
-                    for value in selector_kwargs.values()
-                ):
-                    raise TypeError(
-                        f"case {item['id']}: selector provenance requires strings or null"
-                    )
-                current_contract_hash = contract_sha256(contract, **selector_kwargs)
-                if item.get("contract_sha256") != current_contract_hash:
-                    raise ValueError(f"case {item['id']}: contract provenance mismatch")
-                activation = item.get("activation")
-                if not isinstance(activation, dict) or not isinstance(
-                    activation.get("apply"), bool
-                ):
-                    raise TypeError(f"case {item['id']}: missing activation provenance")
-                active_voice = None
-                if activation["apply"]:
-                    compact = item.get("compact", False)
-                    if not isinstance(compact, bool):
-                        raise TypeError(f"case {item['id']}: compact must be boolean")
-                    active_voice = compile_voice(contract, compact=compact, **selector_kwargs)
-                    current_prompt_hash = hashlib.sha256(
-                        active_voice.encode("utf-8")
-                    ).hexdigest()
-                    if item.get("compiled_prompt_sha256") != current_prompt_hash:
-                        raise ValueError(f"case {item['id']}: prompt provenance mismatch")
-                elif item.get("compiled_prompt_sha256") is not None:
-                    raise ValueError(
-                        f"case {item['id']}: inactive result has compiled prompt provenance"
-                    )
+            for candidate in validated_candidates:
+                item = results_by_id[candidate["case"]["id"]]
+                expected_case = candidate["case"]
+                selectors = candidate["selectors"]
+                activation = candidate["activation"]
+                active_voice = candidate["active_voice"]
                 evaluation_input = {
                     "case_id": item["id"],
-                    "prompt": item["prompt"],
-                    "response": item.get("response"),
-                    "assertions": item.get("assertions"),
+                    "prompt": expected_case["prompt"],
+                    "response": candidate["response"],
+                    "assertions": expected_case.get("assertions"),
                     "selectors": selectors,
                     "activation": activation,
                     "active_voice_contract": active_voice,
@@ -243,6 +292,7 @@ def main() -> int:
                     temperature=args.temperature,
                     reasoning_effort=args.reasoning_effort,
                     timeout=args.timeout,
+                    allow_insecure_http=args.allow_insecure_http,
                 )
                 judgment = parse_judgment(response, dimension_ids)
                 score = sum(
@@ -257,30 +307,25 @@ def main() -> int:
                     "critical_failures": critical,
                     "rationale": judgment["rationale"],
                     "judge_provider": provider,
-                    "judge_model": (
-                        args.azure_deployment if provider == "azure" else args.model
-                    ),
-                    "judge_api_version": (
-                        args.azure_api_version if provider == "azure" else None
-                    ),
-                    "judge_endpoint_sha256": hashlib.sha256(
-                        endpoint.encode("utf-8")
-                    ).hexdigest(),
+                    "judge_model": (args.azure_deployment if provider == "azure" else args.model),
+                    "judge_api_version": (args.azure_api_version if provider == "azure" else None),
+                    "judge_endpoint_sha256": hashlib.sha256(endpoint.encode("utf-8")).hexdigest(),
                     "judge_temperature": args.temperature,
                     "judge_reasoning_effort": args.reasoning_effort,
                     "judge_prompt_sha256": judge_prompt_sha256,
                     "rubric_sha256": rubric_sha256,
-                    "candidate_contract_sha256": current_contract_hash,
-                    "candidate_compiled_prompt_sha256": item.get(
-                        "compiled_prompt_sha256"
-                    ),
+                    "candidate_contract_sha256": candidate["contract_sha256"],
+                    "candidate_compiled_prompt_sha256": candidate["compiled_prompt_sha256"],
+                    "candidate_messages_sha256": candidate["messages_sha256"],
+                    "candidate_response_sha256": candidate["response_sha256"],
+                    "candidate_case_sha256": candidate["case_sha256"],
+                    "candidate_corpus_sha256": candidate["corpus_sha256"],
+                    "candidate_result_sha256": candidate["result_sha256"],
                     "generated_at": datetime.now(UTC).isoformat(),
                     "latency_ms": latency_ms,
                     **metadata,
                 }
-                output.write(
-                    json.dumps(result, ensure_ascii=False, allow_nan=False) + "\n"
-                )
+                output.write(json.dumps(result, ensure_ascii=False, allow_nan=False) + "\n")
                 output.flush()
                 completed += 1
                 completed_ids.add(item["id"])
@@ -289,7 +334,7 @@ def main() -> int:
                 print(f"scored: {item['id']}")
         missing = sorted(selected_ids - completed_ids)
         if missing:
-            raise ValueError("unknown --case IDs: " + ", ".join(missing))
+            raise RuntimeError("judge did not complete selected cases: " + ", ".join(missing))
         if completed == 0:
             raise ValueError("no evaluation cases matched --case selection")
         os.replace(temporary_path, output_path)

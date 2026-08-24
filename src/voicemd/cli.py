@@ -14,7 +14,7 @@ from .evaluator import load_responses, run_cases
 from .installer import InstallError, adapter_health, install, uninstall
 from .linter import lint_text
 from .server import serve
-from .validator import validate_contract
+from .validator import validate_contract, validate_selected_contract
 
 
 def _add_contract_args(parser: argparse.ArgumentParser) -> None:
@@ -36,6 +36,20 @@ def _load(args: argparse.Namespace):
         explicit=explicit,
         include_global=not getattr(args, "no_global", False),
     )
+
+
+def _require_selected(args: argparse.Namespace, contract):
+    result = validate_selected_contract(
+        contract,
+        profile=getattr(args, "profile", None),
+        audience=getattr(args, "audience", None),
+        surface=getattr(args, "surface", None),
+        tone=getattr(args, "tone", None),
+        strict=False,
+    )
+    if not result.ok:
+        raise ContractError("selected VOICE.md failed validation: " + "; ".join(result.errors))
+    return contract
 
 
 def _template(name: str) -> str:
@@ -65,6 +79,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
     )
     if args.json:
         print(json.dumps([str(path) for path in paths], indent=2))
+        return 0 if paths else 1
     else:
         if not paths:
             print("No VOICE.md found.")
@@ -88,7 +103,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_compile(args: argparse.Namespace) -> int:
-    contract = _load(args)
+    contract = _require_selected(args, _load(args))
     rendered = compile_contract(
         contract,
         profile=args.profile,
@@ -119,7 +134,7 @@ def _read_lint_input(args: argparse.Namespace) -> str:
 
 
 def cmd_lint(args: argparse.Namespace) -> int:
-    contract = _load(args)
+    contract = _require_selected(args, _load(args))
     issues = lint_text(
         contract,
         _read_lint_input(args),
@@ -223,7 +238,6 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    print(f"VoiceMD sidecar listening on http://{args.host}:{args.port}", file=sys.stderr)
     serve(
         host=args.host,
         port=args.port,
@@ -347,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (ContractError, DiscoveryError, InstallError, TypeError, ValueError) as exc:
+    except (ContractError, DiscoveryError, InstallError, OSError, TypeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

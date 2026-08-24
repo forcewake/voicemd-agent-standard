@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .compiler import resolve_context
 from .constants import HUMAN_FACING_KINDS, MACHINE_FACING_KINDS
+from .contract import ContractError
 from .model import ResolvedVoiceContract
 
 
@@ -56,6 +57,21 @@ def decide_activation(
     and explicit markers are evaluated in that order. Exclusion and off markers
     win conflicts because VOICE.md must not mutate exact or machine output.
     """
+
+    from .validator import validate_selected_contract
+
+    validation = validate_selected_contract(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+        strict=False,
+    )
+    if not validation.ok:
+        raise ContractError(
+            "selected VOICE.md failed validation: " + "; ".join(validation.errors)
+        )
 
     selected = resolve_context(
         contract,

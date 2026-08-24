@@ -15,6 +15,19 @@ APPEND_UNIQUE_PATHS = {
     ("speech", "avoid"),
 }
 MERGE_BY_ID_KEYS = {"rules", "tests", "examples"}
+SELECTOR_CATEGORIES = {"audiences", "surfaces", "tones"}
+
+
+def _is_dormant_selector_overlay(path: tuple[str, ...]) -> bool:
+    """Return whether ``path`` is inside an unapplied contextual override.
+
+    Source resolution must retain null tombstones in these subtrees so they can
+    delete inherited contract fields later, when the selector is applied.
+    """
+
+    if len(path) >= 2 and path[0] in SELECTOR_CATEGORIES:
+        return True
+    return len(path) >= 3 and path[0] == "profiles" and path[2] == "overrides"
 
 
 def _append_unique(base: list[Any], override: list[Any]) -> list[Any]:
@@ -60,6 +73,7 @@ def _merge_by_id(
     append_unique_arrays: bool,
 ) -> list[Any]:
     result = deepcopy(base)
+    preserve_tombstones = append_unique_arrays and _is_dormant_selector_overlay(path)
     positions = {
         item.get("id"): index
         for index, item in enumerate(result)
@@ -71,6 +85,14 @@ def _merge_by_id(
             continue
         item_id = item["id"]
         if item.get("disabled") is True:
+            if preserve_tombstones:
+                tombstone = deepcopy(item)
+                if item_id in positions:
+                    result[positions[item_id]] = tombstone
+                else:
+                    positions[item_id] = len(result)
+                    result.append(tombstone)
+                continue
             if item_id in positions:
                 result.pop(positions[item_id])
                 positions = {
@@ -81,12 +103,23 @@ def _merge_by_id(
             continue
         if item_id in positions:
             index = positions[item_id]
-            result[index] = deep_merge(
-                result[index],
-                item,
-                path + (item_id,),
-                append_unique_arrays=append_unique_arrays,
-            )
+            if (
+                preserve_tombstones
+                and isinstance(result[index], dict)
+                and result[index].get("disabled") is True
+            ):
+                result[index] = _normalized_copy(
+                    item,
+                    path + (item_id,),
+                    append_unique_arrays=append_unique_arrays,
+                )
+            else:
+                result[index] = deep_merge(
+                    result[index],
+                    item,
+                    path + (item_id,),
+                    append_unique_arrays=append_unique_arrays,
+                )
         else:
             positions[item_id] = len(result)
             result.append(
@@ -109,9 +142,10 @@ def deep_merge(
     """Merge broad guidance with a more specific override.
 
     ``None`` is a delete operator when it appears as an object value. Source
-    overlays append the small set of additive arrays by default. Selector
-    overlays pass ``append_unique_arrays=False`` so a context can narrow an
-    inherited list such as ``language.allowed``.
+    overlays append the small set of additive arrays by default and retain
+    dormant selector tombstones. Selector overlays pass
+    ``append_unique_arrays=False`` so a context can narrow an inherited list
+    such as ``language.allowed`` and consume its ID-based deletions.
     """
     if base is None:
         return _normalized_copy(
@@ -125,7 +159,10 @@ def deep_merge(
         result = deepcopy(base)
         for key, value in override.items():
             if value is None:
-                result.pop(key, None)
+                if append_unique_arrays and _is_dormant_selector_overlay(path):
+                    result[key] = None
+                else:
+                    result.pop(key, None)
                 continue
             if key in result:
                 result[key] = deep_merge(

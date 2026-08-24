@@ -134,6 +134,18 @@ lexicon:
 
 Resolved list contains both.
 
+### Dormant selector deletions
+
+`null` inside an audience, surface, tone, or profile-local override is retained
+while filesystem sources merge. It is a tombstone for the eventual selector
+merge, not a request to erase the dormant overlay entry early. Once that exact
+selector is applied, the key is deleted and no core merge-time `null` remains.
+
+The same delayed-consumption rule applies to `rules`, `tests`, and `examples`
+items with `disabled: true`. A later source must retain that ID tombstone inside
+the dormant selector so applying the selector can remove the inherited top-level
+item.
+
 ### ID-based arrays
 
 ```yaml
@@ -141,7 +153,8 @@ Resolved list contains both.
 rules:
   - id: no-hype
     severity: warning
-    pattern: "(?i)game-changing"
+    pattern: "game-changing"
+    flags: [i]
 
 # specific
 rules:

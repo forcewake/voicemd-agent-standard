@@ -5,6 +5,14 @@ from dataclasses import dataclass
 
 from .compiler import _apply_profile
 from .model import ResolvedVoiceContract
+from .validator import (
+    MAX_REGEX_PATTERN_CHARS,
+    MAX_REGEX_RULES,
+    MAX_REGEX_WORK_UNITS,
+    regex_flags_error,
+    regex_flags_value,
+    regex_safety_error,
+)
 
 EMOJI_RE = re.compile(
     "["
@@ -15,6 +23,8 @@ EMOJI_RE = re.compile(
     flags=re.UNICODE,
 )
 SENTENCE_RE = re.compile(r"(?<=[.!?])(?:\s+|$)")
+MAX_REGEX_INPUT_CHARS = 65_536
+WORD_RE = re.compile(r"[^\x00-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]+")
 
 
 @dataclass(frozen=True)
@@ -34,7 +44,18 @@ class LintIssue:
 
 
 def _search_literal(text: str, phrase: str) -> re.Match[str] | None:
-    return re.search(re.escape(phrase), text, flags=re.IGNORECASE)
+    return re.search(re.escape(phrase), text, flags=re.IGNORECASE | re.ASCII)
+
+
+def normalize_regex_text(text: str) -> str:
+    """Normalize all cross-engine line terminators to LF before core regex matching."""
+
+    return (
+        text.replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\u2028", "\n")
+        .replace("\u2029", "\n")
+    )
 
 
 def lint_text(
@@ -91,7 +112,7 @@ def lint_text(
     if isinstance(response, dict):
         max_words = response.get("max_words")
         if isinstance(max_words, int) and max_words >= 0:
-            count = len(re.findall(r"\b\w+\b", text, flags=re.UNICODE))
+            count = len(WORD_RE.findall(text))
             if count > max_words:
                 issues.append(
                     LintIssue(
@@ -121,14 +142,84 @@ def lint_text(
 
     rules = data.get("rules", [])
     if isinstance(rules, list):
+        active_regex_rules = [
+            rule
+            for rule in rules
+            if isinstance(rule, dict)
+            and rule.get("disabled") is not True
+            and isinstance(rule.get("pattern"), str)
+        ]
+        total_pattern_chars = sum(len(rule["pattern"]) for rule in active_regex_rules)
+        aggregate_regex_limit = (
+            len(active_regex_rules) > MAX_REGEX_RULES
+            or total_pattern_chars > MAX_REGEX_PATTERN_CHARS
+        )
+        if aggregate_regex_limit:
+            issues.append(
+                LintIssue(
+                    "runtime.regex_rule_limit",
+                    "error",
+                    "Regex rules exceed the aggregate count or pattern-character limit",
+                )
+            )
+        regex_input_too_large = len(text) > MAX_REGEX_INPUT_CHARS
+        regex_work_too_large = (
+            not regex_input_too_large
+            and len(text) * total_pattern_chars > MAX_REGEX_WORK_UNITS
+        )
+        regex_text = "" if regex_input_too_large else normalize_regex_text(text)
+        if regex_input_too_large and active_regex_rules:
+            issues.append(
+                LintIssue(
+                    "runtime.regex_input_limit",
+                    "error",
+                    f"Regex rules are not evaluated above {MAX_REGEX_INPUT_CHARS} characters",
+                )
+            )
+        if regex_work_too_large:
+            issues.append(
+                LintIssue(
+                    "runtime.regex_work_limit",
+                    "error",
+                    "Regex evaluation exceeds the aggregate work limit",
+                )
+            )
+        if aggregate_regex_limit:
+            return issues
         for rule in rules:
             if not isinstance(rule, dict) or rule.get("disabled") is True:
                 continue
             pattern = rule.get("pattern")
             if not isinstance(pattern, str):
                 continue
+            problem = regex_safety_error(pattern)
+            if problem:
+                issues.append(
+                    LintIssue(
+                        str(rule.get("id", "rule.pattern")),
+                        "error",
+                        f"Unsafe rule regex: {problem}",
+                    )
+                )
+                continue
+            flags_problem = regex_flags_error(rule.get("flags"))
+            if flags_problem:
+                issues.append(
+                    LintIssue(
+                        str(rule.get("id", "rule.flags")),
+                        "error",
+                        f"Unsafe rule regex flags: {flags_problem}",
+                    )
+                )
+                continue
+            if regex_input_too_large or regex_work_too_large:
+                continue
             try:
-                match = re.search(pattern, text)
+                match = re.search(
+                    pattern,
+                    regex_text,
+                    flags=regex_flags_value(rule.get("flags")),
+                )
             except re.error as exc:
                 issues.append(
                     LintIssue(

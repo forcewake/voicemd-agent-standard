@@ -52,4 +52,4 @@ def to_ascii(text: str) -> str:
     ascii_text = re.sub(r"[ \t]+", " ", ascii_text)
     ascii_text = re.sub(r" *\n *", "\n", ascii_text)
     ascii_text = re.sub(r"\n{3,}", "\n\n", ascii_text)
-    return ascii_text.strip()
+    return ascii_text.strip(" \t\n\r")

@@ -22,12 +22,12 @@ bash lite/load-voice.sh
 
 ### 2. Полный CLI и coding-agent adapters
 
-Установка из готового wheel:
+Установка из release wheel возможна после его сборки для текущего source tree. Для draft.2 ожидаемое имя файла — `voicemd-0.1.0a2-py3-none-any.whl`.
 
-Перед установкой убедитесь, что `release/BUILD_INFO.json` содержит `"artifact_status": "current"`. Если checkout находится в процессе разработки и artifacts помечены `stale`, используйте editable install или пересоберите release.
+Перед установкой убедитесь, что файл существует, `release/BUILD_INFO.json` содержит `"artifact_status": "current"`, а release verifier проходит. Если checkout находится в процессе разработки, wheel отсутствует или artifacts помечены `stale`, используйте editable install либо пересоберите release.
 
 ```bash
-python -m pip install release/voicemd-0.1.0a1-py3-none-any.whl
+python -m pip install release/voicemd-0.1.0a2-py3-none-any.whl
 ```
 
 Или editable install из репозитория:
@@ -62,7 +62,27 @@ OpenAPI: `integrations/http/openapi.yaml`.
 
 Также есть Python API, TypeScript и .NET clients, OpenAI-compatible middleware, optional MCP, Docker и Kubernetes sidecar.
 
-### 4. Local models и speech
+### 4. Azure OpenAI для regression evals
+
+Да, Azure OpenAI поддерживается. Runner по умолчанию читает repository-local `.env`, поэтому ключ не нужно и нельзя передавать через CLI:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_CHAT_DEPLOYMENT=YOUR-DEPLOYMENT
+AZURE_OPENAI_API_VERSION=2024-10-21
+```
+
+```bash
+python evals/run_openai_compatible.py \
+  --provider azure \
+  --cases evals/prompts.jsonl \
+  --output evals/results.azure.jsonl
+```
+
+Azure endpoint обязан использовать HTTPS. Ключ принимается только из environment или `--env-file`; redirects запрещены, чтобы credential header не ушёл на другой origin. Результаты не сохраняют ключ или URL endpoint. Подробности: `evals/README.md`.
+
+### 5. Local models и speech
 
 Для небольшой модели:
 
@@ -77,10 +97,10 @@ voicemd compile \
   --profile nemotron_voicechat \
   --format nemotron-ascii \
   --compact \
-  --output .voice/nemotron-system.txt
+  --output .voice/nemotron-voice.txt
 ```
 
-Рабочий `session.update` adapter: `integrations/nemotron-voicechat/session_update.py`.
+Это только lower-priority communication fragment, а не полный system prompt. Рабочий `session.update` adapter `integrations/nemotron-voicechat/session_update.py` требует отдельный application-owned base instructions file и объединяет оба слоя в пределах общего лимита.
 
 ## Какие файлы читать
 
@@ -108,6 +128,25 @@ voicemd test
 
 Discovery идёт broad-to-specific. Корень задаётся `VOICE_MD_ROOT` либо определяется через `.voicemd-root`, VCS marker или common project manifest. Local `extends` разрешены; remote `extends` core implementation намеренно не загружает.
 
+Каждый source после canonical path resolution должен остаться внутри approved source root; symlink не может расширить эту границу, а `.env` и `.env.*` не загружаются как contracts. Reference loader ограничивает размер одного файла, суммарный объём, количество sources, YAML nodes/aliases и глубину `extends`.
+
+После применения profile/audience/surface/tone проверяется уже точный selected contract. Невалидный вариант даёт `nonconforming` и останавливает compilation, lint, sidecar output или provider submission.
+
+## Проверка переносимости
+
+Frontmatter использует YAML 1.2 JSON schema subset и запрещает explicit YAML tags. Canonical JSON и SHA-256 строятся по RFC 8785 JCS после дополнительной VoiceMD-проверки safe-integer domain и не содержат filesystem paths. Language-neutral vectors и независимый от Python core verifier запускаются так:
+
+```bash
+node integrations/typescript/generated/conformance-verifier.js \
+  conformance/vectors.json
+```
+
+Этот verifier покрывает merge, selection, compact rendering, JCS и hashing, но не является полной второй реализацией YAML/discovery/runtime adapters.
+
 ## Жёсткая граница полномочий
 
 `VOICE.md` может управлять tone, vocabulary, structure, verbosity, disagreement, uncertainty, audience adaptation и spoken delivery. Он не может менять safety, facts, permissions, tools, legal obligations, exact quotations или required output schema. При конфликте эти ограничения всегда выше voice contract.
+
+## Чего пока не хватает
+
+Draft ещё не имеет vendor adoption или standards-body approval. В metadata проекта пока не зафиксированы canonical public remote и опубликованный canonical schema URL. Нет внешней полной реализации или опубликованного independent security review; цель по проверке минимум на десяти независимых real-world contracts остаётся открытой.

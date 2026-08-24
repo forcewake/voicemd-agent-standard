@@ -26,7 +26,7 @@ identity:
 def test_activation_respects_machine_and_exact_output_boundaries(tmp_path: Path):
     contract = _contract(
         tmp_path,
-        "  mode: always\n  include: [chat, json]\n  exclude: [json]",
+        "  mode: always\n  include: [chat]\n  exclude: [json]",
     )
     assert decide_activation(contract, "chat").apply
     assert not decide_activation(contract, "json", explicit=True).apply

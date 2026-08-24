@@ -20,41 +20,96 @@ ROOT_MARKERS = (".voicemd-root", ".git", ".hg", ".svn")
 FALLBACK_ROOT_MARKERS = ("pyproject.toml", "package.json", "go.mod", "Cargo.toml")
 
 
+def _lexical_directory(start: Path) -> Path:
+    """Return an absolute discovery directory without following directory symlinks."""
+
+    current = Path(os.path.abspath(start.expanduser()))
+    if current.is_file():
+        current = current.parent
+    return current
+
+
+def _resolved_directory(path: Path, *, label: str) -> Path:
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise DiscoveryError(f"{label} cannot be resolved safely: {path}") from exc
+    if not resolved.is_dir():
+        raise DiscoveryError(f"{label} is not a directory: {resolved}")
+    return resolved
+
+
+def _symlink_components(path: Path) -> list[Path]:
+    """Return lexical symlink components without following later components."""
+
+    result: list[Path] = []
+    cursor = Path(path.anchor)
+    for part in path.parts[1:]:
+        cursor /= part
+        if cursor.is_symlink():
+            result.append(cursor)
+    return result
+
+
+def _marker_root(chain: Iterable[Path]) -> Path | None:
+    directories = tuple(chain)
+    for directory in directories:
+        if any((directory / marker).exists() for marker in ROOT_MARKERS):
+            return directory
+    for directory in directories:
+        if any((directory / marker).is_file() for marker in FALLBACK_ROOT_MARKERS):
+            return directory
+    return None
+
+
 def find_project_root(start: Path) -> Path:
     """Find the nearest explicit VCS/VoiceMD root, then a common project marker.
 
     `VOICE_MD_ROOT` is authoritative when set. `.voicemd-root` provides a
     provider-neutral root marker for source archives and non-Git deployments.
     """
-    current = start.expanduser().resolve()
-    if current.is_file():
-        current = current.parent
+    lexical_current = _lexical_directory(start)
+    resolved_current = _resolved_directory(lexical_current, label="Discovery start")
 
     configured = os.environ.get(PROJECT_ROOT_ENV)
     if configured:
-        root = Path(configured).expanduser().resolve()
-        if not root.is_dir():
-            raise DiscoveryError(f"{PROJECT_ROOT_ENV} is not a directory: {root}")
-        if root != current and root not in current.parents:
+        root = _resolved_directory(
+            Path(configured).expanduser(), label=PROJECT_ROOT_ENV
+        )
+        if root != resolved_current and root not in resolved_current.parents:
             raise DiscoveryError(
                 f"{PROJECT_ROOT_ENV} must contain the discovery start directory: {root}"
             )
         return root
 
-    chain = (current, *current.parents)
-    for directory in chain:
-        if any((directory / marker).exists() for marker in ROOT_MARKERS):
-            return directory
-    for directory in chain:
-        if any((directory / marker).is_file() for marker in FALLBACK_ROOT_MARKERS):
-            return directory
-    return current
+    chain = (lexical_current, *lexical_current.parents)
+    symlinks = _symlink_components(lexical_current)
+    protective_chain: list[Path] = []
+    if symlinks:
+        # A marker visible only through a symlink target cannot redefine the
+        # lexical project boundary. Ambient prefix symlinks remain usable when
+        # no marker exists at or above the deepest symlink's parent.
+        symlink_parent = symlinks[-1].parent
+        protective_chain = [
+            directory
+            for directory in chain
+            if directory == symlink_parent or directory in symlink_parent.parents
+        ]
+    lexical_root = _marker_root(protective_chain) or _marker_root(chain) or lexical_current
+
+    root = _resolved_directory(lexical_root, label="Project root")
+    if root != resolved_current and root not in resolved_current.parents:
+        raise DiscoveryError(
+            "Discovery start resolves outside its lexical project root; "
+            f"refusing symlink escape from {lexical_root} to {resolved_current}"
+        )
+    return root
 
 
 def _first_candidate(directory: Path) -> Path | None:
     for name in DEFAULT_FILENAMES:
         candidate = directory / name
-        if candidate.is_file() and candidate.stat().st_size > 0:
+        if candidate.is_file():
             return candidate.resolve()
     return None
 
@@ -71,9 +126,7 @@ def discover_paths(
     include_global: bool = True,
 ) -> list[Path]:
     """Return active VOICE.md sources in broad-to-specific precedence order."""
-    cwd = Path(start or Path.cwd()).expanduser().resolve()
-    if cwd.is_file():
-        cwd = cwd.parent
+    lexical_cwd = _lexical_directory(Path(start or Path.cwd()))
 
     if explicit is not None:
         values = [explicit] if isinstance(explicit, (str, Path)) else list(explicit)
@@ -100,7 +153,8 @@ def discover_paths(
         if global_candidate:
             result.append(global_candidate)
 
-    root = find_project_root(cwd)
+    root = find_project_root(lexical_cwd)
+    cwd = _resolved_directory(lexical_cwd, label="Discovery start")
     chain: list[Path] = []
     current = cwd
     while True:

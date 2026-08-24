@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
+import math
 import os
 import tempfile
 import time
@@ -16,8 +18,40 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from voicemd import __version__, compile_voice, contract_sha256, decide_activation, load_voice
+from voicemd.normalization import is_nonblank_selector
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+MAX_REQUEST_BYTES = 16 * 1024 * 1024
+MAX_JSONL_LINE_BYTES = MAX_RESPONSE_BYTES + 1024 * 1024
+MAX_JSONL_FILE_BYTES = 64 * 1024 * 1024
+MAX_JSONL_RECORDS = 10_000
+MAX_ENV_FILE_BYTES = 64 * 1024
+MAX_AUXILIARY_FILE_BYTES = 1024 * 1024
+BASE_SYSTEM_INSTRUCTION = "Answer accurately and preserve exact-output requirements."
+SELECTOR_KEYS = ("profile", "audience", "surface", "tone")
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Reject redirects so authentication headers never reach another origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(NoRedirectHandler())
+
+
+class RejectSecretArgument(argparse.Action):
+    """Fail without echoing a secret supplied on the command line."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        variable = (
+            "AZURE_OPENAI_API_KEY" if option_string == "--azure-api-key" else "VOICEMD_API_KEY"
+        )
+        raise argparse.ArgumentError(
+            self,
+            f"is disabled; set {variable} in the environment or --env-file",
+        )
 
 
 def _reject_json_constant(value: str) -> None:
@@ -28,12 +62,287 @@ def strict_json_loads(text: str) -> object:
     return json.loads(text, parse_constant=_reject_json_constant)
 
 
+def json_sha256(value: object) -> str:
+    """Hash a JSON value using this eval pack's deterministic encoding."""
+
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def corpus_sha256(cases: list[dict[str, object]]) -> str:
+    return json_sha256(cases)
+
+
+def add_secret_argument_guards(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--api-key",
+        action=RejectSecretArgument,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--azure-api-key",
+        action=RejectSecretArgument,
+        help=argparse.SUPPRESS,
+    )
+
+
+def environment_flag(name: str) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return False
+    normalized = value.strip().casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off", ""}:
+        return False
+    raise ValueError(f"{name} must be a boolean flag")
+
+
+def _is_loopback_hostname(hostname: str) -> bool:
+    normalized = hostname.rstrip(".").casefold()
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(normalized).is_loopback
+    except ValueError:
+        return False
+
+
+def validate_endpoint_policy(
+    *,
+    provider: str,
+    endpoint: str,
+    api_key: str,
+    allow_insecure_http: bool = False,
+) -> urllib.parse.SplitResult:
+    """Validate transport policy before constructing a credentialed request."""
+
+    parsed = urllib.parse.urlsplit(endpoint)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("endpoint must be an absolute HTTP(S) URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("endpoint URL must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError("endpoint URL must not contain a query or fragment")
+    try:
+        _ = parsed.port
+    except ValueError as exc:
+        raise ValueError("endpoint URL contains an invalid port") from exc
+
+    if provider == "azure":
+        if parsed.scheme != "https":
+            raise ValueError("Azure OpenAI endpoints must use HTTPS")
+        return parsed
+
+    if provider != "openai-compatible":
+        raise ValueError(f"unsupported provider: {provider}")
+    if parsed.scheme == "http":
+        if api_key:
+            raise ValueError("credentials must not be sent over HTTP")
+        if not _is_loopback_hostname(parsed.hostname) and not allow_insecure_http:
+            raise ValueError("non-loopback HTTP requires --allow-insecure-http and no credentials")
+    return parsed
+
+
+def candidate_messages(
+    *,
+    contract: object,
+    case: dict[str, object],
+    selectors: dict[str, str | None],
+    compact: bool,
+    apply_voice: bool,
+) -> tuple[list[dict[str, str]], str | None]:
+    prompt = case.get("prompt")
+    if not isinstance(prompt, str):
+        raise TypeError(f"case {case.get('id')}: prompt must be a string")
+    messages = [{"role": "system", "content": BASE_SYSTEM_INSTRUCTION}]
+    voice = None
+    if apply_voice:
+        voice = compile_voice(contract, compact=compact, **selectors)
+        messages.append({"role": "system", "content": voice})
+    messages.append({"role": "user", "content": prompt})
+    return messages, voice
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _valid_sha256(value: object) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    return all(character in "0123456789abcdef" for character in value)
+
+
+def validated_selector_kwargs(
+    selectors: object,
+    *,
+    case_id: object,
+) -> dict[str, str | None]:
+    if not isinstance(selectors, dict) or set(selectors) != set(SELECTOR_KEYS):
+        raise TypeError(f"case {case_id}: selectors must contain exactly {sorted(SELECTOR_KEYS)}")
+    selector_kwargs = {key: selectors[key] for key in SELECTOR_KEYS}
+    if any(
+        value is not None and not is_nonblank_selector(value)
+        for value in selector_kwargs.values()
+    ):
+        raise TypeError(f"case {case_id}: selector provenance requires strings or null")
+    return selector_kwargs
+
+
+def validate_candidate_result(
+    item: dict[str, object],
+    *,
+    expected_case: dict[str, object],
+    expected_corpus_sha256: str,
+    contract: object,
+) -> dict[str, object]:
+    """Bind a candidate result to the canonical case, corpus, and current contract."""
+
+    case_id = expected_case["id"]
+    if item.get("id") != case_id:
+        raise ValueError(f"case {case_id}: result ID does not match canonical case")
+    mismatched_fields = [
+        key for key, value in expected_case.items() if key not in item or item[key] != value
+    ]
+    if mismatched_fields:
+        raise ValueError(
+            f"case {case_id}: result does not match corpus fields: " + ", ".join(mismatched_fields)
+        )
+
+    expected_case_sha256 = json_sha256(expected_case)
+    if item.get("case_sha256") != expected_case_sha256:
+        raise ValueError(f"case {case_id}: case provenance mismatch")
+    if item.get("corpus_sha256") != expected_corpus_sha256:
+        raise ValueError(f"case {case_id}: corpus provenance mismatch")
+
+    response = item.get("response")
+    if not isinstance(response, str):
+        raise TypeError(f"case {case_id}: missing response string")
+    if len(response.encode("utf-8")) > MAX_RESPONSE_BYTES:
+        raise ValueError(f"case {case_id}: response exceeds the size limit")
+    response_sha256 = _text_sha256(response)
+    if item.get("response_sha256") != response_sha256:
+        raise ValueError(f"case {case_id}: response provenance mismatch")
+
+    selector_kwargs = validated_selector_kwargs(item.get("selectors"), case_id=case_id)
+
+    current_contract_sha256 = contract_sha256(contract, **selector_kwargs)
+    if item.get("contract_sha256") != current_contract_sha256:
+        raise ValueError(f"case {case_id}: contract provenance mismatch")
+
+    activation = item.get("activation")
+    if not isinstance(activation, dict) or set(activation) != {"apply", "mode", "reason"}:
+        raise TypeError(f"case {case_id}: activation must contain exactly apply, mode, reason")
+    marker_text = expected_case.get("marker_text")
+    if marker_text is not None and not isinstance(marker_text, str):
+        raise TypeError(f"case {case_id}: marker_text must be a string")
+    output_kind = expected_case.get("output_kind", "chat")
+    if not isinstance(output_kind, str) or not output_kind.strip():
+        raise TypeError(f"case {case_id}: output_kind must be a string")
+    decision = decide_activation(
+        contract,
+        output_kind,
+        exact_output=case_boolean(expected_case, "exact_output", False),
+        enabled=case_boolean(expected_case, "voice_enabled", True),
+        explicit=case_boolean(expected_case, "voice_explicit", False),
+        marker_text=marker_text,
+        **selector_kwargs,
+    )
+    expected_activation = {
+        "apply": decision.apply,
+        "mode": decision.mode,
+        "reason": decision.reason,
+    }
+    if activation != expected_activation:
+        raise ValueError(f"case {case_id}: activation provenance mismatch")
+
+    compact = item.get("compact", False)
+    if not isinstance(compact, bool):
+        raise TypeError(f"case {case_id}: compact must be boolean")
+    messages, active_voice = candidate_messages(
+        contract=contract,
+        case=expected_case,
+        selectors=selector_kwargs,
+        compact=compact,
+        apply_voice=decision.apply,
+    )
+    messages_sha256 = json_sha256(messages)
+    if item.get("messages_sha256") != messages_sha256:
+        raise ValueError(f"case {case_id}: request-message provenance mismatch")
+    compiled_prompt_sha256 = _text_sha256(active_voice) if active_voice is not None else None
+    if item.get("compiled_prompt_sha256") != compiled_prompt_sha256:
+        raise ValueError(f"case {case_id}: prompt provenance mismatch")
+
+    provider = item.get("provider")
+    if provider not in {"azure", "openai-compatible"}:
+        raise ValueError(f"case {case_id}: invalid provider provenance")
+    if not isinstance(item.get("model"), str) or not item["model"]:
+        raise TypeError(f"case {case_id}: model provenance must be a non-empty string")
+    if provider == "azure":
+        if not isinstance(item.get("api_version"), str) or not item["api_version"]:
+            raise TypeError(f"case {case_id}: Azure API version provenance is required")
+    elif item.get("api_version") is not None:
+        raise ValueError(f"case {case_id}: generic result must not record Azure API version")
+    if not _valid_sha256(item.get("endpoint_sha256")):
+        raise TypeError(f"case {case_id}: endpoint provenance must be a SHA-256 digest")
+    if item.get("voicemd_version") != __version__:
+        raise ValueError(f"case {case_id}: VoiceMD version provenance mismatch")
+    if "finish_reason" not in item or item["finish_reason"] not in {None, "stop"}:
+        raise ValueError(f"case {case_id}: completion provenance is not successful")
+    temperature = item.get("temperature")
+    if temperature is not None and (
+        isinstance(temperature, bool)
+        or not isinstance(temperature, (int, float))
+        or not math.isfinite(temperature)
+    ):
+        raise TypeError(f"case {case_id}: temperature provenance must be finite or null")
+    reasoning_effort = item.get("reasoning_effort")
+    if reasoning_effort is not None and not isinstance(reasoning_effort, str):
+        raise TypeError(f"case {case_id}: reasoning provenance must be a string or null")
+
+    return {
+        "case": expected_case,
+        "response": response,
+        "selectors": selector_kwargs,
+        "activation": expected_activation,
+        "active_voice": active_voice,
+        "contract_sha256": current_contract_sha256,
+        "compiled_prompt_sha256": compiled_prompt_sha256,
+        "messages_sha256": messages_sha256,
+        "response_sha256": response_sha256,
+        "case_sha256": expected_case_sha256,
+        "corpus_sha256": expected_corpus_sha256,
+        "result_sha256": json_sha256(item),
+    }
+
+
+def read_bounded_text(path: Path, *, max_bytes: int, label: str) -> str:
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+        raise ValueError("max_bytes must be a positive integer")
+    with path.open("rb") as stream:
+        raw = stream.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ValueError(f"{label} exceeds the size limit ({max_bytes} bytes): {path}")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{label} must be UTF-8: {path}") from exc
+
+
 def load_env_file(path: Path) -> None:
     """Load simple KEY=VALUE entries without overwriting the process environment."""
 
     if not path.is_file():
         return
-    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    content = read_bounded_text(path, max_bytes=MAX_ENV_FILE_BYTES, label="environment file")
+    for line_number, raw_line in enumerate(content.splitlines(), start=1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -53,20 +362,40 @@ def load_env_file(path: Path) -> None:
 
 def read_jsonl(path: Path):
     seen: set[str] = set()
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if not line.strip():
-            continue
-        item = strict_json_loads(line)
-        if (
-            not isinstance(item, dict)
-            or not isinstance(item.get("id"), str)
-            or not isinstance(item.get("prompt"), str)
-        ):
-            raise TypeError(f"{path}:{line_number}: expected object with string id and prompt")
-        if item["id"] in seen:
-            raise ValueError(f"{path}:{line_number}: duplicate case id: {item['id']}")
-        seen.add(item["id"])
-        yield item
+    total_bytes = 0
+    record_count = 0
+    with path.open("rb") as stream:
+        line_number = 0
+        while True:
+            raw_line = stream.readline(MAX_JSONL_LINE_BYTES + 1)
+            if not raw_line:
+                break
+            line_number += 1
+            total_bytes += len(raw_line)
+            if total_bytes > MAX_JSONL_FILE_BYTES:
+                raise ValueError(f"{path}: JSONL file exceeds the size limit")
+            if len(raw_line) > MAX_JSONL_LINE_BYTES:
+                raise ValueError(f"{path}:{line_number}: JSONL record exceeds the size limit")
+            if not raw_line.strip():
+                continue
+            record_count += 1
+            if record_count > MAX_JSONL_RECORDS:
+                raise ValueError(f"{path}: JSONL record count exceeds the limit")
+            try:
+                line = raw_line.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(f"{path}:{line_number}: JSONL must be UTF-8") from exc
+            item = strict_json_loads(line)
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("id"), str)
+                or not isinstance(item.get("prompt"), str)
+            ):
+                raise TypeError(f"{path}:{line_number}: expected object with string id and prompt")
+            if item["id"] in seen:
+                raise ValueError(f"{path}:{line_number}: duplicate case id: {item['id']}")
+            seen.add(item["id"])
+            yield item
 
 
 def case_boolean(case: dict[str, object], key: str, default: bool) -> bool:
@@ -87,18 +416,25 @@ def request_config(
     messages: list[dict[str, str]],
     temperature: float | None,
     reasoning_effort: str | None,
+    allow_insecure_http: bool = False,
 ) -> tuple[str, dict[str, str], dict[str, object]]:
+    validate_endpoint_policy(
+        provider=provider,
+        endpoint=endpoint,
+        api_key=api_key,
+        allow_insecure_http=allow_insecure_http,
+    )
     payload: dict[str, object] = {"messages": messages}
     if temperature is not None:
+        if isinstance(temperature, bool) or not math.isfinite(temperature):
+            raise ValueError("temperature must be finite")
         payload["temperature"] = temperature
     if reasoning_effort:
         payload["reasoning_effort"] = reasoning_effort
 
     if provider == "azure":
         if not endpoint or not deployment or not api_version or not api_key:
-            raise ValueError(
-                "Azure mode requires endpoint, deployment, api-version, and API key"
-            )
+            raise ValueError("Azure mode requires endpoint, deployment, api-version, and API key")
         encoded_deployment = urllib.parse.quote(deployment, safe="")
         query = urllib.parse.urlencode({"api-version": api_version})
         url = (
@@ -129,7 +465,10 @@ def call(
     temperature: float | None,
     reasoning_effort: str | None,
     timeout: float,
+    allow_insecure_http: bool = False,
 ) -> tuple[str, int, dict[str, object]]:
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("timeout must be finite and positive")
     url, headers, payload = request_config(
         provider=provider,
         endpoint=endpoint,
@@ -140,22 +479,30 @@ def call(
         messages=messages,
         temperature=temperature,
         reasoning_effort=reasoning_effort,
+        allow_insecure_http=allow_insecure_http,
     )
+    request_body = json.dumps(payload, allow_nan=False).encode("utf-8")
+    if len(request_body) > MAX_REQUEST_BYTES:
+        raise RuntimeError("endpoint request exceeded the size limit")
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        data=request_body,
         headers=headers,
         method="POST",
     )
     started = time.perf_counter()
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _NO_REDIRECT_OPENER.open(request, timeout=timeout) as response:
             raw = response.read(MAX_RESPONSE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_BYTES:
                 raise RuntimeError("endpoint response exceeded the size limit")
             result = strict_json_loads(raw.decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        if 300 <= exc.code < 400:
+            raise RuntimeError("endpoint redirects are not allowed") from exc
         raise RuntimeError(f"endpoint returned HTTP {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError("endpoint request failed") from exc
     if not isinstance(result, dict):
         raise TypeError("endpoint returned an invalid response object")
     choices = result.get("choices")
@@ -206,23 +553,24 @@ def main() -> int:
         choices=("auto", "azure", "openai-compatible"),
         default="auto",
     )
-    parser.add_argument("--base-url", default=os.getenv("VOICEMD_BASE_URL", "http://127.0.0.1:8000/v1"))
-    parser.add_argument("--api-key", default=os.getenv("VOICEMD_API_KEY", ""))
+    parser.add_argument(
+        "--base-url", default=os.getenv("VOICEMD_BASE_URL", "http://127.0.0.1:8000/v1")
+    )
     parser.add_argument("--model", default=os.getenv("VOICEMD_MODEL", "local-model"))
     parser.add_argument("--azure-endpoint", default=os.getenv("AZURE_OPENAI_ENDPOINT", ""))
-    parser.add_argument(
-        "--azure-deployment", default=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "")
-    )
+    parser.add_argument("--azure-deployment", default=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", ""))
     parser.add_argument(
         "--azure-api-version",
         default=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
     )
+    add_secret_argument_guards(parser)
     parser.add_argument(
-        "--azure-api-key", default=os.getenv("AZURE_OPENAI_API_KEY", "")
+        "--allow-insecure-http",
+        action="store_true",
+        default=environment_flag("VOICEMD_ALLOW_INSECURE_HTTP"),
+        help="Allow credential-free HTTP to a non-loopback OpenAI-compatible endpoint.",
     )
-    parser.add_argument(
-        "--reasoning-effort", default=os.getenv("AZURE_OPENAI_REASONING_EFFORT")
-    )
+    parser.add_argument("--reasoning-effort", default=os.getenv("AZURE_OPENAI_REASONING_EFFORT"))
     parser.add_argument(
         "--timeout",
         type=float,
@@ -236,28 +584,50 @@ def main() -> int:
     parser.add_argument("--compact", action="store_true")
     args = parser.parse_args()
 
-    if args.timeout <= 0:
-        raise ValueError("timeout must be positive")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        raise ValueError("timeout must be finite and positive")
 
     provider = args.provider
+    azure_api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+    compatible_api_key = os.getenv("VOICEMD_API_KEY", "")
     if provider == "auto":
         provider = (
             "azure"
-            if args.azure_endpoint and args.azure_deployment and args.azure_api_key
+            if args.azure_endpoint and args.azure_deployment and azure_api_key
             else "openai-compatible"
         )
     endpoint = args.azure_endpoint if provider == "azure" else args.base_url
-    api_key = args.azure_api_key if provider == "azure" else args.api_key
+    api_key = azure_api_key if provider == "azure" else compatible_api_key
+    validate_endpoint_policy(
+        provider=provider,
+        endpoint=endpoint,
+        api_key=api_key,
+        allow_insecure_http=args.allow_insecure_http,
+    )
     model_name = args.azure_deployment if provider == "azure" else args.model
     endpoint_hash = hashlib.sha256(endpoint.encode("utf-8")).hexdigest()
     contract = load_voice(path=args.voice, include_global=False)
 
     cases_path = Path(args.cases).expanduser().resolve()
     output_path = Path(args.output).expanduser().resolve()
-    if output_path == cases_path:
-        raise ValueError("--output must not overwrite --cases")
+    protected_inputs = {
+        "--cases": cases_path,
+        "--voice": Path(args.voice).expanduser().resolve(),
+        "--env-file": Path(args.env_file).expanduser().resolve(),
+    }
+    for input_name, input_path in protected_inputs.items():
+        if output_path == input_path:
+            raise ValueError(f"--output must not overwrite {input_name}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    selected_case_ids = set(args.case)
+    all_cases = list(read_jsonl(cases_path))
+    evaluation_corpus_sha256 = corpus_sha256(all_cases)
+    selected_case_ids = set(args.case) or {case["id"] for case in all_cases}
+    unknown_case_ids = sorted(selected_case_ids - {case["id"] for case in all_cases})
+    if unknown_case_ids:
+        raise ValueError("unknown --case IDs: " + ", ".join(unknown_case_ids))
+    selected_cases = [case for case in all_cases if case["id"] in selected_case_ids]
+    if not selected_cases:
+        raise ValueError("no evaluation cases matched --case selection")
     completed_cases = 0
     completed_ids: set[str] = set()
     descriptor, temporary_name = tempfile.mkstemp(
@@ -267,9 +637,7 @@ def main() -> int:
     temporary_path = Path(temporary_name)
     try:
         with temporary_path.open("w", encoding="utf-8") as output:
-            for case in read_jsonl(cases_path):
-                if selected_case_ids and case["id"] not in selected_case_ids:
-                    continue
+            for case in selected_cases:
                 profile = args.profile or case.get("profile")
                 audience = args.audience or case.get("audience")
                 surface = args.surface or case.get("surface")
@@ -299,24 +667,19 @@ def main() -> int:
                     surface=surface,
                     tone=tone,
                 )
-                messages = [
-                    {
-                        "role": "system",
-                        "content": "Answer accurately and preserve exact-output requirements.",
-                    }
-                ]
-                voice = None
-                if decision.apply:
-                    voice = compile_voice(
-                        contract,
-                        profile=profile,
-                        audience=audience,
-                        surface=surface,
-                        tone=tone,
-                        compact=args.compact,
-                    )
-                    messages.append({"role": "system", "content": voice})
-                messages.append({"role": "user", "content": case["prompt"]})
+                selectors = {
+                    "profile": profile,
+                    "audience": audience,
+                    "surface": surface,
+                    "tone": tone,
+                }
+                messages, voice = candidate_messages(
+                    contract=contract,
+                    case=case,
+                    selectors=selectors,
+                    compact=args.compact,
+                    apply_voice=decision.apply,
+                )
                 response, latency_ms, response_metadata = call(
                     provider=provider,
                     endpoint=endpoint,
@@ -328,15 +691,13 @@ def main() -> int:
                     temperature=args.temperature,
                     reasoning_effort=args.reasoning_effort,
                     timeout=args.timeout,
+                    allow_insecure_http=args.allow_insecure_http,
                 )
                 result = {
                     **case,
-                    "selectors": {
-                        "profile": profile,
-                        "audience": audience,
-                        "surface": surface,
-                        "tone": tone,
-                    },
+                    "case_sha256": json_sha256(case),
+                    "corpus_sha256": evaluation_corpus_sha256,
+                    "selectors": selectors,
                     "activation": {
                         "apply": decision.apply,
                         "mode": decision.mode,
@@ -352,25 +713,23 @@ def main() -> int:
                     "compact": args.compact,
                     "voicemd_version": __version__,
                     "contract_sha256": active_contract_sha256,
+                    "messages_sha256": json_sha256(messages),
                     "compiled_prompt_sha256": (
                         hashlib.sha256(voice.encode("utf-8")).hexdigest() if voice else None
                     ),
+                    "response_sha256": hashlib.sha256(response.encode("utf-8")).hexdigest(),
                     "generated_at": datetime.now(UTC).isoformat(),
                     "latency_ms": latency_ms,
                     **response_metadata,
                 }
-                output.write(
-                    json.dumps(result, ensure_ascii=False, allow_nan=False) + "\n"
-                )
+                output.write(json.dumps(result, ensure_ascii=False, allow_nan=False) + "\n")
                 output.flush()
                 completed_cases += 1
                 completed_ids.add(case["id"])
                 print(f"completed: {case['id']}")
         missing = sorted(selected_case_ids - completed_ids)
         if missing:
-            raise ValueError("unknown --case IDs: " + ", ".join(missing))
-        if completed_cases == 0:
-            raise ValueError("no evaluation cases matched --case selection")
+            raise RuntimeError("runner did not complete selected cases: " + ", ".join(missing))
         os.replace(temporary_path, output_path)
     except BaseException:
         temporary_path.unlink(missing_ok=True)

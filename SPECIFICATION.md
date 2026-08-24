@@ -1,6 +1,6 @@
 # VOICE.md Agent Communication Contract Specification
 
-Version: `0.1.0-draft.1`  
+Version: `0.1.0-draft.2`
 Format version: `voice_spec: "0.1"`  
 Status: Independent public draft  
 Date: 2026-08-24
@@ -55,7 +55,7 @@ Where a user explicitly requests an exact quotation, faithful translation, stric
 
 ## 4. File and encoding
 
-The canonical filename is `VOICE.md`. UTF-8 is REQUIRED. Line endings MAY be LF or CRLF; implementations SHOULD normalize internally.
+The canonical filename is `VOICE.md`. UTF-8 is REQUIRED. A single leading UTF-8 byte-order mark MAY be accepted and ignored. Line endings MAY be LF or CRLF; implementations SHOULD normalize internally.
 
 A file contains:
 
@@ -64,7 +64,7 @@ A file contains:
 
 A plain Markdown file with no frontmatter is a valid L0 contract.
 
-Structured frontmatter MUST use the JSON-compatible YAML subset. Mapping keys MUST be strings and MUST NOT be duplicated. Implementations MUST parse only `true` and `false` (case-insensitive) as implicit booleans; YAML 1.1 spellings such as `yes`, `no`, `on`, and `off` are strings. Date-shaped scalars are strings unless an implementation rejects an explicit non-JSON timestamp tag. Non-finite numbers, sets, binary values, recursive aliases, and other values that cannot be represented in strict JSON MUST be rejected. YAML aliases MAY be supported when the resulting value is an acyclic JSON-compatible tree.
+Structured frontmatter MUST use the YAML 1.2 JSON schema subset. Mapping keys MUST be strings and MUST NOT be duplicated. Only lowercase `true`, `false`, and `null`, decimal integers without leading zeroes, and JSON-number float/exponent spellings are implicitly typed. YAML 1.1 spellings such as `yes`, `no`, `on`, `off`, `~`, `012`, `1_000`, and `1:20`, uppercase boolean/null spellings, and date-shaped scalars are strings. Explicit YAML tags of every kind and YAML merge keys MUST be rejected. Implicit non-finite numbers, lone Unicode surrogates, recursive aliases, and other values that cannot be represented as UTF-8 strict JSON MUST also be rejected. YAML aliases MAY be supported only when both the syntax graph and expanded acyclic JSON-compatible value are resource-bounded. An expanded-node budget MUST count mapping keys as well as mapping values, sequence items, and collection nodes, including every repeated occurrence introduced by an alias.
 
 The published JSON Schema describes the fully resolved contract. An individual source used as an `extends` file or hierarchy overlay MAY be partial and MAY contain merge-time `null` deletion operators; implementations MUST resolve those sources before applying the schema.
 
@@ -116,6 +116,8 @@ An external conformance suite MAY establish an ecosystem-specific level, but the
 
 The reference CLI `--strict` option is an additional deployment-validation profile, not another conformance level. It rejects L0 and structured metadata without concrete guidance, and requires `activation.mode` plus the complete authority declaration described in Section 11.1. A contract can conform to L1 or L2 without opting into that stricter authoring profile.
 
+An implementation MUST report an invalid or empty contract as `nonconforming`; it MUST NOT attach an L0-L3 label to a contract with schema, semantic, parsing, or strict-profile errors.
+
 ## 7. Discovery
 
 The reference discovery algorithm is normative for implementations claiming **VoiceMD Hierarchical Discovery 0.1**.
@@ -141,7 +143,7 @@ Sources MUST be applied broad-to-specific. A source closer to the current workin
 
 ### 7.4 Overrides
 
-`VOICE.override.md` replaces `VOICE.md` at the same directory level for discovery. It does not erase broader directories unless its actual content overrides those values.
+`VOICE.override.md` replaces `VOICE.md` at the same directory level for discovery, including when the override file is empty. It does not erase broader directories unless its actual content overrides those values. An empty override with no broader guidance is selected and then fails conformance; discovery MUST NOT silently fall back to the lower-priority file.
 
 ### 7.5 Dot-directory form
 
@@ -159,9 +161,13 @@ extends:
 
 Paths resolve relative to the declaring file and load before it. Implementations MUST detect cycles and SHOULD enforce a depth limit. The reference limit is eight `extends` edges from a discovery root; a root with no `extends` has depth zero.
 
+Every source MUST resolve canonically inside an operator-approved source root. The reference default is the discovered project root for project files, the configured global directory for a global contract, and the nearest project root for an explicit source. File and directory symlinks MUST NOT widen that boundary. A runtime MAY expose an explicit broader root for reviewed cross-project inheritance, but MUST NOT infer one from the target of a symlink. `.env` and `.env.*` files MUST NOT be loaded as contracts or inherited sources.
+
 `extends` forms an ordered directed acyclic graph, not only a tree. The reference traversal is depth-first and left-to-right in the declared path order. Each canonical resolved path is applied at most once, at its first encounter. A path already loaded through an earlier branch is not traversed again. Cycles MUST still be detected against the active recursion stack before a previously loaded path is skipped.
 
 The core specification supports local filesystem paths. Core implementations MUST NOT fetch remote `extends` implicitly. An extension MAY support remote sources only with explicit trust policy, immutable pinning, integrity verification, cache behavior, and failure semantics.
+
+Implementations MUST bound source loading. The reference defaults are 1 MiB per source, 4 MiB and 64 unique canonical sources across the complete load, plus 20,000 YAML nodes after alias expansion and 100 alias references in each individual source. A duplicate canonical source in a DAG consumes the aggregate source/byte budgets once.
 
 ## 9. Merge semantics
 
@@ -169,14 +175,16 @@ The later source is the override.
 
 - Scalars replace earlier values.
 - Objects deep-merge recursively.
-- A mapping value of `null` is a merge operator that deletes the corresponding inherited key. It MUST NOT remain in the resolved contract. Use an empty object or array when that empty value, rather than key absence, is intended.
+- A mapping value of `null` is a merge operator that deletes the corresponding inherited key. Outside dormant selector overlays it MUST NOT remain in the resolved contract. Use an empty object or array when that empty value, rather than key absence, is intended.
 - Most arrays replace earlier arrays.
 - The following arrays append unique values: activation include/exclude, authority may/must-not control, allowed languages, preferred/forbidden lexicon, formatting avoid, and speech avoid.
 - `rules`, `tests`, and `examples` merge by string `id`.
-- An ID-based item with `disabled: true` removes the inherited item.
+- An ID-based item with `disabled: true` removes the inherited item. During source merging, such an item inside a dormant audience, surface, tone, or profile-local override MUST remain as a tombstone until that selector is applied; consuming it earlier would fail to remove the corresponding top-level inherited item. A still-later non-disabled item with the same ID replaces that tombstone and re-enables the item.
 - Markdown bodies concatenate broad-to-specific. Later body guidance wins when it directly conflicts with earlier guidance.
 
 The append-unique array rules apply while merging filesystem sources. Audience, surface, tone, and profile `overrides` are contextual selectors and use ordinary replacement for arrays. This distinction lets a profile narrow a source-level list, for example from `language.allowed: [en, ru]` to `[en]`.
+
+A contextual selector override is also a merge operand and MAY contain `null` deletion operators. A source merge MUST preserve those operators inside every not-yet-applied audience, surface, tone, and profile-local override, including a later source's deletion of an earlier value in the same dormant overlay. The exact selected contract MUST consume those deletions and MUST NOT retain merge-time `null` values in core fields. Selector overlay values are validated against their final core-field types after selection.
 
 Implementations MUST document any deviation.
 
@@ -217,13 +225,13 @@ Defines observable communication identity. `sounds_like` and `not_like` SHOULD c
 
 ### 11.3 `response`
 
-Defines opening, structure, verbosity, length, examples, repetition, and other response-level behavior.
+Defines opening, structure, verbosity, length, examples, repetition, and other response-level behavior. `max_words` and `max_sentences` are non-negative safe integers.
 
 ### 11.4 `language`
 
 Defines default/allowed languages, user-language matching, mixing, and translation behavior. Language codes SHOULD use BCP 47 where practical. `match_user: true` selects among allowed languages; it does not expand `language.allowed`.
 
-`language.default` is the normative default-language field. `default_language` is a deprecated `0.1` compatibility alias. When only the alias is present, a compiler MUST treat it as `language.default`; when both are present they MUST be equal, otherwise the contract is invalid. A declared `language.default` MUST occur in `language.allowed` when that list is present.
+`language.default` is the normative default-language field. `default_language` is a deprecated `0.1` compatibility alias. Alias normalization and conflict checking MUST occur after the complete selector/profile merge; when only the alias is present, a compiler MUST treat it as `language.default`, and when both are present they MUST be equal, otherwise the selected contract is invalid. A canonical selected payload MUST NOT contain `default_language`. A declared `language.default` MUST occur in `language.allowed` when that list is present.
 
 ### 11.5 `lexicon`
 
@@ -268,24 +276,31 @@ profiles:
 
 Explicit runtime arguments override profile selectors. Audience, surface, and tone variants are merged first; the profile-local `overrides` mapping is merged last because it is the most specific part of the selected profile.
 
-When the `profiles` mapping contains a member named `default` and no explicit profile is supplied, a compiler MUST select that profile automatically. Explicit runtime audience, surface, and tone arguments replace the corresponding selector names from the selected profile. Variant application order is audience, then surface, then tone, followed by profile-local `overrides`. Every selector reference in a profile or test MUST name an existing variant or profile.
+When the `profiles` mapping contains a member named `default` and no explicit profile is supplied, a compiler MUST select that profile automatically. Explicit runtime audience, surface, and tone arguments replace the corresponding selector names from the selected profile. Variant application order is audience, then surface, then tone, followed by profile-local `overrides`. Every selector name, profile name, and selector reference supplied by a contract, test, CLI, API, or sidecar request MUST be a non-empty string containing at least one character outside this exact portable whitespace set: U+0009-U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000-U+200A, U+2028, U+2029, U+202F, U+205F, and U+3000. U+200B ZERO WIDTH SPACE is not in that set and is therefore nonblank. Every selector reference in a profile or test MUST name an existing variant or profile.
+
+Whole-contract validation MUST apply and validate every named audience, surface, and tone individually, every named profile, and every exact selector tuple declared by an enabled test. Runtime arguments can form additional cross-category tuples that were not declared by a profile or test; a runtime MUST therefore revalidate the exact selected contract before activation, compilation, linting, or provider submission and MUST fail closed when it is invalid.
+
+Implementations MUST bound selector expansion during whole-contract validation. The reference validator rejects more than 256 selectable contexts, counted as every named audience, surface, tone, and profile plus every enabled test that declares one or more selectors. This startup/build-time expansion does not replace exact selected-context validation at runtime.
 
 ### 11.12 `runtime`
 
-Contains implementation hints such as `max_prompt_chars` or compact-mode preference. Hints MUST NOT weaken safety or authority constraints.
+Contains implementation hints such as `max_prompt_chars` or compact-mode preference. `max_prompt_chars` is a safe integer from 256 through 9007199254740991. Hints MUST NOT weaken safety or authority constraints.
+
+For the executable non-negative integer fields `response.max_words`, `response.max_sentences`, `runtime.max_prompt_chars`, and `tests[].assertions.max_words`, an implementation MUST accept any finite JSON Number whose mathematical value is integral and within the field's range, including `1.0` and exponent notation, and MUST normalize it to an integer before selection, execution, or canonical serialization. Boolean values, non-integral numbers, non-finite numbers, negative values, and values above 9007199254740991 are invalid.
 
 ### 11.13 `rules`
 
 Rules require a stable `id`. A deterministic regex rule MAY define:
 
 - `pattern`;
+- `flags`: a unique array containing `i`, `m`, and/or `s`;
 - `assert`: `must_match` or `must_not_match`;
 - `severity`: `info`, `warning`, or `error`;
 - `message`.
 
 A rule without a pattern is a normative natural-language rule for model-based evaluation.
 
-For a regex rule, `pattern` and `assert` MUST occur together. A core implementation MUST reject syntactically invalid patterns before evaluation. Because the reference Python regex engine has no execution timeout, its supported subset limits a pattern to 2,048 characters and rejects unbounded repetition of a group that itself contains a variable-width repeat or alternation. This intentionally rejects obvious catastrophic-backtracking forms such as `(a+)+` and `(a|aa)+`. Implementations with a bounded-time regex engine MAY safely support a broader subset but MUST document the deviation.
+For a regex rule, `pattern` and `assert` MUST occur together. Core deterministic rules use the `portable-safe-v1` subset over Unicode input with optional `i` (ASCII case-insensitive), `m` (multiline), and `s` (dot-all) flags. Before matching, candidate text MUST normalize CRLF, lone CR, U+2028, and U+2029 to LF. Patterns themselves MUST be ASCII. The subset permits ASCII literals, fixed explicit character classes, `.`, `^`, `$`, ordinary capture groups, control/ASCII-hex escapes, and escaped metacharacters. It limits a pattern to 512 characters and group nesting to 32. It forbids alternation, repetition operators (`*`, `+`, `?`, and `{m,n}`), shorthand character/word-boundary classes, Unicode/provider-specific escapes, group extensions and inline modifiers, backreferences, octal escapes, lookarounds, and named groups. These restrictions define the same accepted syntax and ASCII matching semantics across the reference engines and bound evaluation without relying on an engine-specific timeout. A broader engine-specific rule MAY be represented only as an `x-*` extension and does not contribute to core L3. The reference linter additionally refuses regex evaluation above 65,536 input characters.
 
 ### 11.14 `tests`
 
@@ -297,17 +312,19 @@ Tests require an `id` and MAY define prompt, inline response, selectors, and ass
 - `ascii_only`;
 - `lint_clean`.
 
+For `must_contain` and `must_not_contain`, implementations compare substrings after folding ASCII `A` through `Z` only; they MUST NOT apply Unicode case folding or normalization. `max_words` counts maximal runs of code points outside U+0000-002F, U+003A-0040, U+005B-0060, and U+007B-007E. `ascii_only: true` requires every response code point to be in U+0000-007F. `lint_clean: true` requires zero deterministic linter findings at every severity for the exact selected contract and response.
+
 Model-generated response execution is outside the core format; the package includes an OpenAI-compatible runner.
 
-Every test MUST contain an `assertions` mapping and at least one of `prompt` or `response`. Empty or extension-only assertions do not contribute to core L3. IDs in each of `rules`, `tests`, and `examples` MUST be unique within each source and in the resolved contract. Duplicate IDs are invalid rather than silently last-wins. An inherited ID MAY be updated by a later source or removed with `disabled: true` under the merge semantics in Section 9.
+Every test MUST contain an `assertions` mapping and at least one of `prompt` or `response`. A test with `disabled: true` MUST be skipped rather than executed or reported as a failure. `max_words` is a non-negative safe integer, so `max_words: 0` is a valid assertion for an empty response. Empty, extension-only, and false-only assertions do not contribute to core L3; when such a test is locally executed with no other effective core assertion, it MUST report not-passed rather than pass vacuously. IDs in each of `rules`, `tests`, and `examples` MUST be unique within each source and in the resolved contract. Duplicate IDs are invalid rather than silently last-wins. An inherited ID MAY be updated by a later source or removed with `disabled: true` under the merge semantics in Section 9.
 
 ### 11.15 Extensions
 
-Unknown keys are permitted for forward compatibility. Vendor or organization extensions SHOULD use an `x-` prefix.
+Known core fields use the types and constraints in the published JSON Schema. A wrong type is invalid even in permissive validation. Unknown unprefixed fields are preserved for forward compatibility but MUST produce a permissive-validation warning and MUST be rejected by the reference strict profile. This governance applies recursively at core-defined object shapes, including sections, named variant overrides, profile descriptors and overrides, rules, tests and assertions, examples, and pronunciation entries. It does not interpret dynamic keys or payloads inside `metadata`, `x-*` extension values, `lexicon.replacements`, selector-name mappings, or example `input`/`output`. Vendor or organization extensions MUST use an `x-` prefix to remain warning-free and strict-valid.
 
 ## 12. Compilation
 
-A compiler transforms the resolved contract into runtime instructions. A configured prompt character budget MUST be at least 256 characters; JSON contract output MUST use strict JSON (including rejection of NaN and infinities), remain valid JSON, and MUST NOT be text-truncated. It MUST:
+A compiler transforms the resolved contract into runtime instructions. It MUST validate the exact selected context before emitting output. A disabled rule MUST NOT appear in either full or compact human-readable instructions. A configured prompt character budget MUST be at least 256 characters; JSON contract output MUST use strict JSON (including rejection of NaN and infinities), remain valid JSON, and MUST NOT be text-truncated. Portable JSON output MUST omit host paths by default; an explicit provenance mode MAY include them for a trusted local operator. It MUST:
 
 - preserve the authority boundary;
 - identify active selectors when useful;
@@ -323,10 +340,10 @@ For an ASCII output format, normalization MUST occur before the final character-
 For portable cache keys and provenance, the reference canonical payload is a JSON object with exactly three members:
 
 - `contract`: the fully resolved contract after selector/profile application and deprecated-field normalization;
-- `markdown_bodies`: the ordered non-empty Markdown bodies, with CRLF/CR normalized to LF and surrounding whitespace removed;
+- `markdown_bodies`: the ordered non-empty Markdown bodies, with CRLF/CR normalized to LF and only U+0009, U+000A, U+000D, and U+0020 removed from both ends;
 - `active`: `profile`, `audience`, `surface`, and `tone`, using JSON `null` when absent.
 
-The payload MUST exclude filesystem paths, timestamps, compiler version, and other host-specific metadata. Serialize it as UTF-8 strict JSON with lexicographically sorted object keys, no insignificant whitespace, literal non-ASCII characters, and no NaN or infinities. The lowercase hexadecimal SHA-256 of those UTF-8 bytes is the canonical selected-contract hash. A cache key SHOULD additionally include the compiler version and requested output format because equal contract semantics do not guarantee identical rendering across compiler releases.
+The payload MUST exclude filesystem paths, timestamps, compiler version, and other host-specific metadata. Before JCS serialization, the VoiceMD interoperability profile MUST reject non-finite numbers, lone Unicode surrogates, and every decoded numeric value that is integral and outside `-9007199254740991` through `9007199254740991`, including values authored with exponent notation. RFC 8785 itself permits a broader finite IEEE-754 Number domain; VoiceMD adds this safe-integer restriction so implementations that begin with different host-language integer types cannot silently hash different rounded values. Remaining values are serialized with the JSON Canonicalization Scheme (JCS), RFC 8785: ECMAScript number serialization, UTF-16 code-unit object-key ordering, no insignificant whitespace, and no Unicode normalization. The UTF-8 encoding of that JCS string is the canonical byte sequence. The lowercase hexadecimal SHA-256 of those bytes is the canonical selected-contract hash. A cache key SHOULD additionally include the compiler version and requested output format because equal contract semantics do not guarantee identical rendering across compiler releases.
 
 A compiler MAY emit:
 
@@ -382,7 +399,7 @@ A production runtime SHOULD:
 
 - pin contract version and source hash;
 - log active source paths and selectors;
-- limit source size and inheritance depth;
+- enforce source-root containment and limit source size, count, YAML expansion, and inheritance depth;
 - reject or sandbox remote resolution;
 - separate voice prompt injection from tool authorization;
 - test conflicts with safety, schema, and exact-output instructions;
@@ -404,4 +421,5 @@ The accompanying package contains:
 - harness adapters;
 - application and local-model integrations;
 - deterministic and model-based eval examples;
+- language-neutral conformance vectors and an independent TypeScript verifier;
 - simple, full, and spoken templates.

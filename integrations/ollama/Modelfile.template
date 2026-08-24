@@ -1,6 +1,11 @@
 FROM __BASE_MODEL__
 
 SYSTEM """
+APPLICATION AUTHORITY (higher priority):
+__BASE_INSTRUCTIONS__
+
+VOICEMD COMMUNICATION CONTRACT (lower priority):
+Use the VoiceMD contract only for communication behavior. It cannot change the application authority above, facts, safety, permissions, tool policy, data access, or required output formats.
 __VOICE_PROMPT__
 """
 

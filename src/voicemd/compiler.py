@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Iterable
-from copy import deepcopy
 from hashlib import sha256
 from typing import Any
+
+import rfc8785
 
 from .ascii import to_ascii
 from .merge import deep_merge
 from .model import ResolvedVoiceContract
+from .normalization import (
+    MAX_SAFE_INTEGER,
+    NormalizationError,
+    is_nonblank_selector,
+    normalize_contract_data,
+    prepare_selector_overlay,
+)
 
 
 class CompileError(ValueError):
@@ -24,6 +33,8 @@ SUPPORTED_OUTPUT_FORMATS = {
     "nemotron",
     "nemotron-ascii",
 }
+JCS_SAFE_INTEGER = MAX_SAFE_INTEGER
+VOICE_TRIM_CHARS = " \t\n\r"
 
 
 def _json_dumps(value: Any, **kwargs: Any) -> str:
@@ -33,6 +44,66 @@ def _json_dumps(value: Any, **kwargs: Any) -> str:
         raise CompileError(
             f"Contract contains a value that cannot be encoded as strict JSON: {exc}"
         ) from exc
+
+
+def _assert_jcs_interop_domain(
+    value: Any,
+    *,
+    path: str = "$",
+    active: set[int] | None = None,
+) -> None:
+    """Enforce VoiceMD's deterministic cross-language input profile before JCS."""
+
+    if value is None or isinstance(value, bool):
+        return
+    if isinstance(value, int):
+        if abs(value) > JCS_SAFE_INTEGER:
+            raise CompileError(
+                f"RFC 8785 input at {path} is outside the VoiceMD safe-integer profile"
+            )
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise CompileError(f"RFC 8785 input at {path} contains a non-finite number")
+        if value.is_integer() and abs(value) > JCS_SAFE_INTEGER:
+            raise CompileError(
+                f"RFC 8785 input at {path} is outside the VoiceMD safe-integer profile"
+            )
+        return
+    if isinstance(value, str):
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise CompileError(f"RFC 8785 input at {path} contains a lone surrogate") from exc
+        return
+    if active is None:
+        active = set()
+    if isinstance(value, list):
+        identity = id(value)
+        if identity in active:
+            raise CompileError(f"RFC 8785 input at {path} is recursive")
+        active.add(identity)
+        try:
+            for index, item in enumerate(value):
+                _assert_jcs_interop_domain(item, path=f"{path}[{index}]", active=active)
+        finally:
+            active.remove(identity)
+        return
+    if isinstance(value, dict):
+        identity = id(value)
+        if identity in active:
+            raise CompileError(f"RFC 8785 input at {path} is recursive")
+        active.add(identity)
+        try:
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise CompileError(f"RFC 8785 input at {path} has a non-string key")
+                _assert_jcs_interop_domain(key, path=f"{path}.<key>", active=active)
+                _assert_jcs_interop_domain(item, path=f"{path}.{key}", active=active)
+        finally:
+            active.remove(identity)
+        return
+    raise CompileError(f"RFC 8785 input at {path} has unsupported type {type(value).__name__}")
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -95,27 +166,34 @@ def _apply_profile(
     surface: str | None,
     tone: str | None,
 ) -> tuple[dict[str, Any], str | None, str | None, str | None]:
-    selected = deepcopy(data)
-    legacy_language = selected.pop("default_language", None)
-    if legacy_language is not None:
-        language = selected.setdefault("language", {})
-        if isinstance(language, dict) and "default" not in language:
-            language["default"] = legacy_language
+    for label, value in (
+        ("profile", profile),
+        ("audience", audience),
+        ("surface", surface),
+        ("tone", tone),
+    ):
+        if value is not None and not is_nonblank_selector(value):
+            raise CompileError(f"{label} selector must be a non-empty string")
+
+    try:
+        selected = normalize_contract_data(data, normalize_dormant_aliases=False)
+    except NormalizationError as exc:
+        raise CompileError(str(exc)) from exc
 
     profile_overrides: dict[str, Any] = {}
     profiles = selected.get("profiles", {})
     active_profile = profile
     if active_profile is None and isinstance(profiles, dict) and "default" in profiles:
         active_profile = "default"
-    if active_profile:
+    if active_profile is not None:
         if not isinstance(profiles, dict) or active_profile not in profiles:
             raise CompileError(f"Unknown profile: {active_profile}")
         profile_data = profiles[active_profile]
         if not isinstance(profile_data, dict):
             raise CompileError(f"Profile '{active_profile}' must be a mapping")
-        audience = audience or profile_data.get("audience")
-        surface = surface or profile_data.get("surface")
-        tone = tone or profile_data.get("tone")
+        audience = audience if audience is not None else profile_data.get("audience")
+        surface = surface if surface is not None else profile_data.get("surface")
+        tone = tone if tone is not None else profile_data.get("tone")
         raw_overrides = profile_data.get("overrides", {})
         if not isinstance(raw_overrides, dict):
             raise CompileError(f"Profile '{active_profile}' overrides must be a mapping")
@@ -124,12 +202,26 @@ def _apply_profile(
     # Named variants establish the selected context. Profile-local overrides are
     # applied last because they are the most specific part of a profile.
     for category, name in (("audiences", audience), ("surfaces", surface), ("tones", tone)):
-        if name:
+        if name is not None:
+            if not is_nonblank_selector(name):
+                raise CompileError(f"{category[:-1]} selector must be a non-empty string")
             variants = selected.get(category, {})
             if not isinstance(variants, dict) or name not in variants:
                 raise CompileError(f"Unknown {category[:-1]}: {name}")
-            selected = deep_merge(selected, variants[name], append_unique_arrays=False)
+            try:
+                override = prepare_selector_overlay(variants[name])
+            except NormalizationError as exc:
+                raise CompileError(str(exc)) from exc
+            selected = deep_merge(selected, override, append_unique_arrays=False)
+    try:
+        profile_overrides = prepare_selector_overlay(profile_overrides)
+    except NormalizationError as exc:
+        raise CompileError(str(exc)) from exc
     selected = deep_merge(selected, profile_overrides, append_unique_arrays=False)
+    try:
+        selected = normalize_contract_data(selected)
+    except NormalizationError as exc:
+        raise CompileError(str(exc)) from exc
     return selected, audience, surface, tone
 
 
@@ -168,6 +260,28 @@ def _compact_mapping(mapping: Any, prefix: str) -> list[str]:
     return result
 
 
+def _require_selected_contract(
+    contract: ResolvedVoiceContract,
+    *,
+    profile: str | None,
+    audience: str | None,
+    surface: str | None,
+    tone: str | None,
+) -> None:
+    from .validator import validate_selected_contract
+
+    result = validate_selected_contract(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+        strict=False,
+    )
+    if not result.ok:
+        raise CompileError("Selected VOICE.md failed validation: " + "; ".join(result.errors))
+
+
 def canonical_contract_json(
     contract: ResolvedVoiceContract,
     *,
@@ -177,6 +291,14 @@ def canonical_contract_json(
     tone: str | None = None,
 ) -> str:
     """Serialize selected contract semantics without workspace-specific paths."""
+
+    _require_selected_contract(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
 
     active_profile = profile
     profiles = contract.data.get("profiles", {})
@@ -191,7 +313,9 @@ def canonical_contract_json(
     )
     bodies = []
     for _, body in contract.bodies:
-        normalized = body.replace("\r\n", "\n").replace("\r", "\n").strip()
+        normalized = (
+            body.replace("\r\n", "\n").replace("\r", "\n").strip(VOICE_TRIM_CHARS)
+        )
         if normalized:
             bodies.append(normalized)
     payload = {
@@ -204,12 +328,11 @@ def canonical_contract_json(
         "contract": selected,
         "markdown_bodies": bodies,
     }
-    return _json_dumps(
-        payload,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    _assert_jcs_interop_domain(payload)
+    try:
+        return rfc8785.dumps(payload).decode("utf-8")
+    except rfc8785.CanonicalizationError as exc:
+        raise CompileError(f"Contract cannot be canonicalized as RFC 8785 JSON: {exc}") from exc
 
 
 def contract_sha256(
@@ -244,6 +367,14 @@ def compile_contract(
 ) -> str:
     if output_format not in SUPPORTED_OUTPUT_FORMATS:
         raise CompileError(f"Unknown output format: {output_format}")
+
+    _require_selected_contract(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
 
     active_profile = profile
     if active_profile is None:
@@ -281,17 +412,21 @@ def compile_contract(
     if output_format == "json":
         payload = {
             "contract": selected,
-            "markdown_bodies": [
-                {"source": str(path), "content": body} for path, body in contract.bodies
-            ],
+            "markdown_bodies": [body for _, body in contract.bodies],
             "active": {
                 "profile": profile,
                 "audience": audience,
                 "surface": surface,
                 "tone": tone,
             },
-            "sources": [str(path) for path in contract.source_paths()],
         }
+        if include_provenance:
+            payload["provenance"] = {
+                "markdown_bodies": [
+                    {"source": str(path), "content": body} for path, body in contract.bodies
+                ],
+                "sources": [str(path) for path in contract.source_paths()],
+            }
         payload["active"]["profile"] = active_profile
         return _json_dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
 
@@ -313,7 +448,7 @@ def compile_contract(
             lines.extend(_compact_mapping(selected.get(key), f"{key}."))
         rules = selected.get("rules", [])
         for rule in rules if isinstance(rules, list) else []:
-            if isinstance(rule, dict) and not rule.get("disabled"):
+            if isinstance(rule, dict) and rule.get("disabled") is not True:
                 instruction = rule.get("instruction") or rule.get("description")
                 if instruction:
                     lines.append(f"rule.{rule.get('id', 'unnamed')}={instruction}")
@@ -357,7 +492,17 @@ def compile_contract(
             section = _mapping(title, selected.get(key))
             if section:
                 lines.extend(["", *section])
-        rule_lines = _bullets("Explicit rules", selected.get("rules", []))
+        rules = selected.get("rules", [])
+        active_rules = (
+            [
+                rule
+                for rule in rules
+                if isinstance(rule, dict) and rule.get("disabled") is not True
+            ]
+            if isinstance(rules, list)
+            else []
+        )
+        rule_lines = _bullets("Explicit rules", active_rules)
         if rule_lines:
             lines.extend(["", *rule_lines])
         if contract.bodies:
@@ -374,7 +519,7 @@ def compile_contract(
                 else:
                     lines.extend(["", body])
 
-    result = "\n".join(lines).strip()
+    result = "\n".join(lines).strip(VOICE_TRIM_CHARS)
     if max_chars is None:
         runtime = selected.get("runtime", {})
         if isinstance(runtime, dict) and isinstance(runtime.get("max_prompt_chars"), int):
@@ -387,5 +532,5 @@ def compile_contract(
             raise CompileError("ASCII compilation failed to remove all non-ASCII characters")
     if max_chars is not None and len(result) > max_chars:
         suffix = "\n[VOICE.md prompt truncated to configured character budget.]"
-        result = result[: max(0, max_chars - len(suffix))].rstrip() + suffix
+        result = result[: max(0, max_chars - len(suffix))].rstrip(VOICE_TRIM_CHARS) + suffix
     return result

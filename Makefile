@@ -11,7 +11,7 @@ validate:
 	PYTHONPATH=src $(PYTHON) -m voicemd validate --path templates/spoken/VOICE.md --strict
 
 build:
-	$(PYTHON) -m build
+	$(PYTHON) -m build --no-isolation
 
 release-examples:
 	PYTHONPATH=src $(PYTHON) -m voicemd compile --path templates/full/VOICE.md --profile executive_brief --output examples/compiled/executive.prompt.md

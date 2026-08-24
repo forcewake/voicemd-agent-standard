@@ -222,8 +222,27 @@ runtime:
   max_prompt_chars: 12000
   compact_for_small_models: true
 rules:
-  - id: no-empty-praise
-    pattern: "(?i)^(great|excellent|amazing|absolutely)[!,. ]"
+  - id: no-empty-praise-great
+    pattern: "^great[!,. ]"
+    flags: [i]
+    assert: must_not_match
+    severity: error
+    message: Do not open with automatic praise or agreement.
+  - id: no-empty-praise-excellent
+    pattern: "^excellent[!,. ]"
+    flags: [i]
+    assert: must_not_match
+    severity: error
+    message: Do not open with automatic praise or agreement.
+  - id: no-empty-praise-amazing
+    pattern: "^amazing[!,. ]"
+    flags: [i]
+    assert: must_not_match
+    severity: error
+    message: Do not open with automatic praise or agreement.
+  - id: no-empty-praise-absolutely
+    pattern: "^absolutely[!,. ]"
+    flags: [i]
     assert: must_not_match
     severity: error
     message: Do not open with automatic praise or agreement.

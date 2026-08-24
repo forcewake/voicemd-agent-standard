@@ -9,22 +9,34 @@ fi
 NEW_MODEL="$1"
 BASE_MODEL="$2"
 VOICE_FILE="${VOICE_FILE:-VOICE.compiled.txt}"
+BASE_INSTRUCTIONS_FILE="${BASE_INSTRUCTIONS_FILE:-BASE.instructions.txt}"
 
 if [ ! -f "$VOICE_FILE" ]; then
   echo "missing $VOICE_FILE; generate it with voicemd compile --compact --output $VOICE_FILE" >&2
   exit 2
 fi
+if [ ! -f "$BASE_INSTRUCTIONS_FILE" ]; then
+  echo "missing $BASE_INSTRUCTIONS_FILE; provide application-owned base instructions" >&2
+  exit 2
+fi
 
-python3 - "$BASE_MODEL" "$VOICE_FILE" <<'PY'
+python3 - "$BASE_MODEL" "$VOICE_FILE" "$BASE_INSTRUCTIONS_FILE" <<'PY'
 from pathlib import Path
 import sys
-base, voice_file = sys.argv[1:]
+base_model, voice_file, base_instructions_file = sys.argv[1:]
 template = Path("Modelfile.template").read_text(encoding="utf-8")
-voice = Path(voice_file).read_text(encoding="utf-8")
-if '"""' in voice:
-    raise SystemExit('VOICE prompt contains triple quotes; use dynamic injection instead')
+voice = Path(voice_file).read_text(encoding="utf-8").strip(" \t\r\n")
+base_instructions = Path(base_instructions_file).read_text(encoding="utf-8").strip(" \t\r\n")
+if not voice:
+    raise SystemExit("VOICE prompt is empty")
+if not base_instructions:
+    raise SystemExit("base instructions are empty")
+if '"""' in voice or '"""' in base_instructions:
+    raise SystemExit('instruction text contains triple quotes; use dynamic injection instead')
 Path("Modelfile.generated").write_text(
-    template.replace("__BASE_MODEL__", base).replace("__VOICE_PROMPT__", voice),
+    template.replace("__BASE_MODEL__", base_model)
+    .replace("__BASE_INSTRUCTIONS__", base_instructions)
+    .replace("__VOICE_PROMPT__", voice),
     encoding="utf-8",
 )
 PY

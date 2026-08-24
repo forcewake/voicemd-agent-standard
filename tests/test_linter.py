@@ -19,7 +19,8 @@ response:
   max_words: 3
 rules:
   - id: no-hype
-    pattern: "(?i)game-changing"
+    pattern: "game-changing"
+    flags: [i]
     assert: must_not_match
     severity: error
     message: No hype.

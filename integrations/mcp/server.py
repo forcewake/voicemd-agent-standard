@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from voicemd import compile_voice, lint_voice_text, load_voice
+from voicemd import compile_voice, lint_voice_text, load_voice, require_valid_voice
+from voicemd.provenance import source_labels
 
 mcp = FastMCP("voicemd")
 
@@ -15,11 +17,12 @@ mcp = FastMCP("voicemd")
 @mcp.resource("voice://active")
 def active_contract() -> str:
     contract = load_voice()
+    require_valid_voice(contract)
     return json.dumps(
         {
             "contract": contract.data,
             "body": contract.body,
-            "sources": [str(path) for path in contract.source_paths()],
+            "sources": source_labels(contract.source_paths(), root=Path.cwd()),
         },
         ensure_ascii=False,
         indent=2,

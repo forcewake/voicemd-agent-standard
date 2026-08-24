@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from threading import Thread
 from urllib.error import HTTPError
@@ -58,6 +59,71 @@ def test_health_revalidates_contract_and_errors_do_not_leak_paths(tmp_path: Path
         payload = json.load(error.value)
         assert payload == {"error": "contract_unavailable"}
         assert str(tmp_path) not in json.dumps(payload)
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+def test_sidecar_reload_tracks_retargeted_extends_symlink(tmp_path: Path):
+    base_one = tmp_path / "base-one.md"
+    base_two = tmp_path / "base-two.md"
+    base_one.write_text("ONE", encoding="utf-8")
+    base_two.write_text("TWO", encoding="utf-8")
+    dependency = tmp_path / "base.md"
+    dependency.symlink_to(base_one)
+    voice = tmp_path / "VOICE.md"
+    voice.write_text(
+        '''---
+voice_spec: "0.1"
+kind: VoiceContract
+name: Reload graph
+extends: base.md
+identity: {sounds_like: [direct]}
+---
+ROOT
+''',
+        encoding="utf-8",
+    )
+    server = create_server(port=0, path=voice, include_global=False, quiet=True)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/v1/voice/contract"
+    try:
+        with urlopen(url) as response:
+            assert json.load(response)["body"] == "ONE\n\nROOT"
+        dependency.unlink()
+        dependency.symlink_to(base_two)
+        with urlopen(url) as response:
+            assert json.load(response)["body"] == "TWO\n\nROOT"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+def test_sidecar_reload_hashes_content_when_size_and_mtime_are_preserved(tmp_path: Path):
+    voice = tmp_path / "VOICE.md"
+    prefix = '''---
+voice_spec: "0.1"
+kind: VoiceContract
+name: Reload content
+identity: {sounds_like: [direct]}
+---
+'''
+    voice.write_text(prefix + "Body one", encoding="utf-8")
+    original = voice.stat()
+    server = create_server(port=0, path=voice, include_global=False, quiet=True)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/v1/voice/contract"
+    try:
+        voice.write_text(prefix + "Body two", encoding="utf-8")
+        os.utime(voice, ns=(original.st_atime_ns, original.st_mtime_ns))
+        assert voice.stat().st_size == original.st_size
+        assert voice.stat().st_mtime_ns == original.st_mtime_ns
+        with urlopen(url) as response:
+            assert json.load(response)["body"] == "Body two"
     finally:
         server.shutdown()
         thread.join(timeout=5)

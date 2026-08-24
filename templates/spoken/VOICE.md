@@ -77,8 +77,21 @@ profiles:
       runtime:
         max_prompt_chars: 5000
 rules:
-  - id: no-stage-directions
-    pattern: "(?i)\\[(laughs|sighs|pauses)\\]"
+  - id: no-stage-directions-laughs
+    pattern: "\\[laughs\\]"
+    flags: [i]
+    assert: must_not_match
+    severity: error
+    message: Do not emit theatrical stage directions.
+  - id: no-stage-directions-sighs
+    pattern: "\\[sighs\\]"
+    flags: [i]
+    assert: must_not_match
+    severity: error
+    message: Do not emit theatrical stage directions.
+  - id: no-stage-directions-pauses
+    pattern: "\\[pauses\\]"
+    flags: [i]
     assert: must_not_match
     severity: error
     message: Do not emit theatrical stage directions.

@@ -110,7 +110,7 @@ Applications should pass an explicit selector object:
 {
   "output_kind": "spoken",
   "surface": "spoken",
-  "audience": "customer",
+  "audience": "novice",
   "tone": "neutral",
   "profile": "voicechat",
   "voice_enabled": true,

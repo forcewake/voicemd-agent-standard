@@ -19,6 +19,7 @@ class ResolvedVoiceContract:
     data: dict[str, Any]
     bodies: list[tuple[Path, str]] = field(default_factory=list)
     sources: list[SourceDocument] = field(default_factory=list)
+    dependency_edges: list[Path] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -27,7 +28,10 @@ class ResolvedVoiceContract:
 
     @property
     def body(self) -> str:
-        return "\n\n".join(body.strip() for _, body in self.bodies if body.strip()).strip()
+        trim = " \t\n\r"
+        return "\n\n".join(
+            body.strip(trim) for _, body in self.bodies if body.strip(trim)
+        ).strip(trim)
 
     def source_paths(self) -> list[Path]:
         return [source.path for source in self.sources]

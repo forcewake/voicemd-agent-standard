@@ -33,8 +33,10 @@ voicemd compile \
   --format nemotron-ascii \
   --compact \
   --max-chars 5000 \
-  --output .voice/nemotron-system.txt
+  --output .voice/nemotron-voice.txt
 ```
+
+This output is only the lower-priority communication fragment. Do not send it as the sole `session.instructions` value. The reference adapter prepends required application-owned base instructions and budgets the complete combined value.
 
 `--format nemotron-ascii`:
 
@@ -64,13 +66,13 @@ and sends:
       "input": {"format": {"type": "audio/pcm", "rate": 24000}},
       "output": {"format": {"type": "audio/pcm", "rate": 24000}}
     },
-    "instructions": "<compiled ASCII VoiceMD prompt>",
+    "instructions": "<ASCII application authority, then lower-priority VoiceMD fragment>",
     "tools": []
   }
 }
 ```
 
-The example only configures and verifies the session; it does not implement microphone capture or playback. NVIDIA's client examples should remain the source of truth for audio streaming.
+The example requires `--base-instructions-file`; the file must be ASCII and contain application-owned safety, task, tool, data-access, and output requirements. It only configures and verifies the session; it does not implement microphone capture or playback. NVIDIA's client examples should remain the source of truth for audio streaming.
 
 ## Tool responses
 

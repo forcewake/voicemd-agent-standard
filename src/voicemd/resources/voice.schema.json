@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:voicemd:schema:0.1",
   "title": "VOICE.md Agent Communication Contract",
-  "description": "Schema for a resolved VOICE.md contract. Source overlays may use null as a merge-time delete operator; null values are removed before this schema is applied. Markdown-only L0 contracts intentionally have no frontmatter to validate.",
+  "description": "Schema for a resolved VOICE.md contract. Source overlays may use null as a merge-time delete operator. Source-level deletions are removed before validation; dormant selector overlays may retain null until selection, after which the exact selected contract is validated again. Markdown-only L0 contracts intentionally have no frontmatter to validate.",
   "type": "object",
   "required": ["voice_spec", "kind", "name"],
   "properties": {
@@ -61,7 +61,7 @@
       },
       "additionalProperties": true
     },
-    "response": {"$ref": "#/$defs/flexibleObject"},
+    "response": {"$ref": "#/$defs/response"},
     "language": {
       "type": "object",
       "properties": {
@@ -98,14 +98,14 @@
       },
       "additionalProperties": true
     },
-    "epistemics": {"$ref": "#/$defs/flexibleObject"},
-    "interaction": {"$ref": "#/$defs/flexibleObject"},
-    "formatting": {"$ref": "#/$defs/flexibleObject"},
-    "speech": {"$ref": "#/$defs/flexibleObject"},
+    "epistemics": {"$ref": "#/$defs/epistemics"},
+    "interaction": {"$ref": "#/$defs/interaction"},
+    "formatting": {"$ref": "#/$defs/formatting"},
+    "speech": {"$ref": "#/$defs/speech"},
     "runtime": {
       "type": "object",
       "properties": {
-        "max_prompt_chars": {"type": "integer", "minimum": 256},
+        "max_prompt_chars": {"type": "integer", "minimum": 256, "maximum": 9007199254740991},
         "compact_for_small_models": {"type": "boolean"},
         "cache_key": {"type": "string"}
       },
@@ -116,13 +116,14 @@
     "tones": {"$ref": "#/$defs/namedVariants"},
     "profiles": {
       "type": "object",
+      "propertyNames": {"$ref": "#/$defs/selectorName"},
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "audience": {"type": "string"},
-          "surface": {"type": "string"},
-          "tone": {"type": "string"},
-          "overrides": {"type": "object"}
+          "audience": {"$ref": "#/$defs/selectorName"},
+          "surface": {"$ref": "#/$defs/selectorName"},
+          "tone": {"$ref": "#/$defs/selectorName"},
+          "overrides": {"$ref": "#/$defs/contractOverlay"}
         },
         "additionalProperties": true
       }
@@ -146,21 +147,127 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "selectorName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "[^\\u0009-\\u000D\\u0020\\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]"
+    },
     "stringList": {
       "type": "array",
       "items": {"type": "string"},
       "uniqueItems": true
     },
-    "flexibleObject": {
+    "response": {
       "type": "object",
+      "properties": {
+        "conclusion_first": {"type": "boolean"},
+        "examples": {"type": "string"},
+        "max_sentences": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "max_words": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "opening": {"type": "string"},
+        "repetition": {"type": "string"},
+        "softening": {"type": "string"},
+        "structure": {"type": "string"},
+        "verbosity": {"type": "string"}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
+      "additionalProperties": true
+    },
+    "epistemics": {
+      "type": "object",
+      "properties": {
+        "assumptions": {"type": "string"},
+        "certainty": {"type": "string"},
+        "confidence_pressure": {"type": "string"},
+        "correction": {"type": "string"},
+        "escalation": {"type": "string"},
+        "evidence": {"type": "string"},
+        "inference": {"type": "string"},
+        "precision": {"type": "string"},
+        "sources": {"type": "string"},
+        "uncertainty": {"type": "string"}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
+      "additionalProperties": true
+    },
+    "interaction": {
+      "type": "object",
+      "properties": {
+        "challenge": {"type": "string"},
+        "clarification": {"type": "string"},
+        "defensiveness": {"type": "string"},
+        "disagreement": {"type": "string"},
+        "emotional_calibration": {"type": "string"},
+        "escalation": {"type": "string"},
+        "repeated_question": {"type": "string"},
+        "technical_depth": {"type": "string"},
+        "user_expertise": {"type": "string"}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
+      "additionalProperties": true
+    },
+    "formatting": {
+      "type": "object",
+      "properties": {
+        "avoid": {"$ref": "#/$defs/stringList"},
+        "bullets": {"$ref": "#/$defs/policy"},
+        "emoji": {"$ref": "#/$defs/policy"},
+        "headings": {"$ref": "#/$defs/policy"},
+        "lists": {"$ref": "#/$defs/policy"},
+        "markdown": {"$ref": "#/$defs/policy"},
+        "tables": {"$ref": "#/$defs/policy"}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
+      "additionalProperties": true
+    },
+    "speech": {
+      "type": "object",
+      "properties": {
+        "ascii_only": {"type": "boolean"},
+        "avoid": {"$ref": "#/$defs/stringList"},
+        "interruptions": {"type": "string"},
+        "pronunciation": {"type": "string"},
+        "sentence_length": {"type": "string"},
+        "tts_friendly": {"type": "boolean"},
+        "turn_length": {"type": "string"}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
+      "additionalProperties": true
+    },
+    "policy": {
+      "oneOf": [
+        {"type": "string"},
+        {"type": "boolean"}
+      ]
+    },
+    "contractOverlay": {
+      "type": "object",
+      "description": "A source-resident partial contract. Known values are fully type-checked after this overlay is selected and null delete operators have been removed.",
+      "properties": {
+        "activation": {"type": ["object", "null"]},
+        "authority": {"type": ["object", "null"]},
+        "default_language": {"type": ["string", "null"]},
+        "identity": {"type": ["object", "null"]},
+        "response": {"type": ["object", "null"]},
+        "language": {"type": ["object", "null"]},
+        "lexicon": {"type": ["object", "null"]},
+        "epistemics": {"type": ["object", "null"]},
+        "interaction": {"type": ["object", "null"]},
+        "formatting": {"type": ["object", "null"]},
+        "speech": {"type": ["object", "null"]},
+        "runtime": {"type": ["object", "null"]},
+        "rules": {"type": ["array", "null"]},
+        "tests": {"type": ["array", "null"]},
+        "examples": {"type": ["array", "null"]},
+        "metadata": {"type": ["object", "null"]}
+      },
+      "patternProperties": {"^x-[A-Za-z0-9_.-]+$": {}},
       "additionalProperties": true
     },
     "namedVariants": {
       "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": true
-      }
+      "propertyNames": {"$ref": "#/$defs/selectorName"},
+      "additionalProperties": {"$ref": "#/$defs/contractOverlay"}
     },
     "rule": {
       "type": "object",
@@ -169,7 +276,17 @@
         "id": {"type": "string", "minLength": 1},
         "instruction": {"type": "string", "minLength": 1},
         "description": {"type": "string", "minLength": 1},
-        "pattern": {"type": "string", "minLength": 1, "maxLength": 2048},
+        "pattern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[\\u0000-\\u007F]+$"
+        },
+        "flags": {
+          "type": "array",
+          "items": {"enum": ["i", "m", "s"]},
+          "uniqueItems": true
+        },
         "assert": {"enum": ["must_match", "must_not_match"]},
         "severity": {"enum": ["info", "warning", "error"]},
         "message": {"type": "string"},
@@ -193,10 +310,10 @@
         "id": {"type": "string", "minLength": 1},
         "prompt": {"type": "string"},
         "response": {"type": "string"},
-        "profile": {"type": "string"},
-        "audience": {"type": "string"},
-        "surface": {"type": "string"},
-        "tone": {"type": "string"},
+        "profile": {"$ref": "#/$defs/selectorName"},
+        "audience": {"$ref": "#/$defs/selectorName"},
+        "surface": {"$ref": "#/$defs/selectorName"},
+        "tone": {"$ref": "#/$defs/selectorName"},
         "disabled": {"type": "boolean"},
         "assertions": {
           "type": "object",
@@ -204,7 +321,7 @@
           "properties": {
             "must_contain": {"$ref": "#/$defs/stringList"},
             "must_not_contain": {"$ref": "#/$defs/stringList"},
-            "max_words": {"type": "integer", "minimum": 0},
+            "max_words": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
             "ascii_only": {"type": "boolean"},
             "lint_clean": {"type": "boolean"}
           },

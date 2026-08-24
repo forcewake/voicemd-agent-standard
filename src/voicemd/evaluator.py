@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .linter import lint_text
+from .linter import WORD_RE, lint_text
 from .model import ResolvedVoiceContract
+from .normalization import normalize_contract_data, portable_nonnegative_integer
 
 SUPPORTED_ASSERTIONS = {
     "must_contain",
@@ -15,6 +15,10 @@ SUPPORTED_ASSERTIONS = {
     "ascii_only",
     "lint_clean",
 }
+
+
+def _ascii_fold(value: str) -> str:
+    return value.translate(str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"))
 
 
 def _reject_json_constant(value: str) -> None:
@@ -60,13 +64,18 @@ def run_cases(
     responses: dict[str, str] | None = None,
 ) -> list[CaseResult]:
     responses = responses or {}
-    cases = contract.data.get("tests", [])
+    cases = normalize_contract_data(
+        contract.data,
+        normalize_dormant_aliases=False,
+    ).get("tests", [])
     if not isinstance(cases, list):
         raise TypeError("tests must be a list")
     results: list[CaseResult] = []
     for index, case in enumerate(cases):
         if not isinstance(case, dict):
             results.append(CaseResult(str(index), False, ["case must be a mapping"]))
+            continue
+        if case.get("disabled") is True:
             continue
         case_id = str(case.get("id") or f"case-{index + 1}")
         response = responses[case_id] if case_id in responses else case.get("response")
@@ -99,20 +108,19 @@ def run_cases(
             failures.append("must_not_contain must be an array of strings")
             forbidden = []
 
+        folded_response = _ascii_fold(response)
         for phrase in required:
-            if str(phrase).casefold() not in response.casefold():
+            if _ascii_fold(str(phrase)) not in folded_response:
                 failures.append(f"missing required phrase: {phrase}")
         for phrase in forbidden:
-            if str(phrase).casefold() in response.casefold():
+            if _ascii_fold(str(phrase)) in folded_response:
                 failures.append(f"contains forbidden phrase: {phrase}")
-        max_words = assertions.get("max_words")
-        if max_words is not None and (
-            not isinstance(max_words, int) or isinstance(max_words, bool) or max_words < 1
-        ):
-            failures.append("max_words must be a positive integer")
-            max_words = None
-        if isinstance(max_words, int):
-            count = len(re.findall(r"\b\w+\b", response, flags=re.UNICODE))
+        raw_max_words = assertions.get("max_words")
+        max_words = portable_nonnegative_integer(raw_max_words)
+        if raw_max_words is not None and max_words is None:
+            failures.append("max_words must be a non-negative safe integer")
+        if max_words is not None:
+            count = len(WORD_RE.findall(response))
             if count > max_words:
                 failures.append(f"{count} words exceeds {max_words}")
         for boolean_assertion in ("ascii_only", "lint_clean"):
@@ -131,7 +139,7 @@ def run_cases(
                 tone=case.get("tone"),
             )
             failures.extend(f"lint:{issue.rule_id}: {issue.message}" for issue in issues)
-        effective = bool(required or forbidden) or isinstance(max_words, int)
+        effective = bool(required or forbidden) or max_words is not None
         effective = effective or assertions.get("ascii_only") is True
         effective = effective or assertions.get("lint_clean") is True
         if not effective:

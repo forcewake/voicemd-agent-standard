@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import evals.run_openai_compatible as eval_helpers
 from evals.run_openai_compatible import (
     case_boolean,
     load_env_file,
@@ -14,6 +15,8 @@ from evals.run_openai_compatible import (
 from evals.score_deterministic import assertion_failures
 from evals.score_deterministic import main as deterministic_main
 from evals.score_model import parse_judgment
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_env_file_loads_known_syntax_without_overwriting_environment(
@@ -30,6 +33,16 @@ def test_env_file_loads_known_syntax_without_overwriting_environment(
     load_env_file(path)
     assert os.environ["AZURE_OPENAI_ENDPOINT"] == "https://example.openai.azure.com/"
     assert os.environ["AZURE_OPENAI_API_KEY"] == "already-set"
+
+
+def test_env_file_has_a_preallocation_size_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    path = tmp_path / ".env"
+    path.write_bytes(b"A=" + b"x" * 80)
+    monkeypatch.setattr(eval_helpers, "MAX_ENV_FILE_BYTES", 32)
+    with pytest.raises(ValueError, match="environment file exceeds the size limit"):
+        load_env_file(path)
 
 
 def test_azure_request_uses_deployment_url_and_api_key_header():
@@ -56,12 +69,36 @@ def test_azure_request_uses_deployment_url_and_api_key_header():
 def test_case_reader_rejects_duplicate_ids(tmp_path: Path):
     path = tmp_path / "cases.jsonl"
     path.write_text(
-        '{"id":"same","prompt":"one"}\n'
-        '{"id":"same","prompt":"two"}\n',
+        '{"id":"same","prompt":"one"}\n{"id":"same","prompt":"two"}\n',
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="duplicate case id"):
         list(read_jsonl(path))
+
+
+def test_case_reader_enforces_line_file_and_record_limits_before_parsing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    oversized_record = tmp_path / "oversized.jsonl"
+    oversized_record.write_bytes(b'{"id":"one","prompt":"' + b"x" * 80 + b'"}\n')
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_LINE_BYTES", 64)
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_FILE_BYTES", 1024)
+    with pytest.raises(ValueError, match="record exceeds the size limit"):
+        list(read_jsonl(oversized_record))
+
+    oversized_file = tmp_path / "oversized-file.jsonl"
+    oversized_file.write_bytes(b'{"id":"one","prompt":"one"}\n')
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_LINE_BYTES", 1024)
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_FILE_BYTES", 16)
+    with pytest.raises(ValueError, match="file exceeds the size limit"):
+        list(read_jsonl(oversized_file))
+
+    too_many_records = tmp_path / "too-many.jsonl"
+    too_many_records.write_bytes(b'{"id":"one","prompt":"one"}\n{"id":"two","prompt":"two"}\n')
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_FILE_BYTES", 1024)
+    monkeypatch.setattr(eval_helpers, "MAX_JSONL_RECORDS", 1)
+    with pytest.raises(ValueError, match="record count exceeds the limit"):
+        list(read_jsonl(too_many_records))
 
 
 def test_case_controls_require_real_booleans():
@@ -74,19 +111,14 @@ def test_deterministic_eval_assertions_cover_exact_json_and_text():
     assert not assertion_failures(
         {"assertions": {"json_equals": {"status": "ok"}}}, '{"status":"ok"}'
     )
-    assert assertion_failures(
-        {"assertions": {"json_equals": {"status": "ok"}}}, "```json\n{}\n```"
-    )
-    assert not assertion_failures(
-        {"assertions": {"exact_text": "verbatim"}}, "verbatim"
-    )
-    assert assertion_failures(
-        {"assertions": {"exact_text": "verbatim"}}, "Verbatim"
-    )
+    assert assertion_failures({"assertions": {"json_equals": {"status": "ok"}}}, "```json\n{}\n```")
+    assert not assertion_failures({"assertions": {"exact_text": "verbatim"}}, "verbatim")
+    assert assertion_failures({"assertions": {"exact_text": "verbatim"}}, "Verbatim")
     assert not assertion_failures(
         {"assertions": {"must_contain_any": [["no data loss", "no data has been lost"]]}},
         "No data has been lost.",
     )
+    assert not assertion_failures({"assertions": {"max_words": 0}}, "")
 
 
 def test_model_judgment_requires_exact_dimensions_and_bounded_scores():
@@ -141,3 +173,36 @@ def test_deterministic_scorer_rejects_empty_or_partial_corpus(
     )
     with pytest.raises(ValueError, match="missing result IDs"):
         deterministic_main()
+
+
+def test_checked_in_azure_evidence_is_complete_current_and_secret_free(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    cases = ROOT / "evals" / "prompts.jsonl"
+    evidence = ROOT / "evals" / "evidence" / "0.1.0a2-azure-results.jsonl"
+    records = list(read_jsonl(evidence))
+    assert len(records) == len(list(read_jsonl(cases))) == 14
+    forbidden_fields = {
+        "api_key",
+        "authorization",
+        "azure_endpoint",
+        "base_url",
+        "endpoint",
+    }
+    assert all(not (forbidden_fields & set(record)) for record in records)
+    assert {record["provider"] for record in records} == {"azure"}
+    assert {record["voicemd_version"] for record in records} == {"0.1.0a2"}
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "score_deterministic.py",
+            "--voice",
+            str(ROOT / "VOICE.md"),
+            "--cases",
+            str(cases),
+            "--results",
+            str(evidence),
+        ],
+    )
+    assert deterministic_main() == 0

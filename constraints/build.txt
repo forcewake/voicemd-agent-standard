@@ -1,0 +1,6 @@
+# Exact release-build toolchain. Update deliberately and verify reproducible bytes.
+build==1.5.0
+packaging==26.3
+pyproject-hooks==1.2.0
+setuptools==84.0.0
+wheel==0.48.0

@@ -27,7 +27,7 @@ paths:
       operationId: getResolvedContract
       responses:
         "200":
-          description: Resolved contract and provenance
+          description: Resolved contract with path-safe provenance labels
           content:
             application/json:
               schema:
@@ -38,21 +38,27 @@ paths:
                   sources:
                     type: array
                     items: {type: string}
+                    description: Relative labels or external content-hash labels; never absolute paths
+                required: [contract, body, sources]
+                additionalProperties: false
   /v1/voice/prompt:
     get:
       operationId: compileVoicePrompt
       parameters:
-        - {name: profile, in: query, schema: {type: string}}
-        - {name: audience, in: query, schema: {type: string}}
-        - {name: surface, in: query, schema: {type: string}}
-        - {name: tone, in: query, schema: {type: string}}
+        - {name: profile, in: query, schema: {$ref: "#/components/schemas/SelectorName"}}
+        - {name: audience, in: query, schema: {$ref: "#/components/schemas/SelectorName"}}
+        - {name: surface, in: query, schema: {$ref: "#/components/schemas/SelectorName"}}
+        - {name: tone, in: query, schema: {$ref: "#/components/schemas/SelectorName"}}
         - name: format
           in: query
           schema:
             type: string
             enum: [prompt, json, canonical-json, sha256, ascii, nemotron, nemotron-ascii]
             default: prompt
-        - {name: compact, in: query, schema: {type: boolean, default: false}}
+        - name: compact
+          in: query
+          description: Must be serialized exactly as `true` or `false`.
+          schema: {type: boolean, default: false}
         - {name: max_chars, in: query, schema: {type: integer, minimum: 256}}
       responses:
         "200":
@@ -64,6 +70,7 @@ paths:
                 required: [prompt]
                 properties:
                   prompt: {type: string}
+                additionalProperties: false
         "400":
           description: Invalid selector or contract
         "503":
@@ -80,10 +87,11 @@ paths:
               required: [text]
               properties:
                 text: {type: string}
-                profile: {type: string}
-                audience: {type: string}
-                surface: {type: string}
-                tone: {type: string}
+                profile: {$ref: "#/components/schemas/SelectorName"}
+                audience: {$ref: "#/components/schemas/SelectorName"}
+                surface: {$ref: "#/components/schemas/SelectorName"}
+                tone: {$ref: "#/components/schemas/SelectorName"}
+              additionalProperties: false
       responses:
         "200":
           description: Lint result
@@ -103,6 +111,9 @@ paths:
                         severity: {type: string}
                         message: {type: string}
                         evidence: {type: [string, "null"]}
+                      required: [rule_id, severity, message, evidence]
+                      additionalProperties: false
+                additionalProperties: false
         "400":
           description: Invalid JSON request
         "411":
@@ -113,3 +124,9 @@ paths:
           description: Content-Type must be application/json
         "503":
           description: Active contract is missing or invalid
+components:
+  schemas:
+    SelectorName:
+      type: string
+      minLength: 1
+      pattern: '[^\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]'

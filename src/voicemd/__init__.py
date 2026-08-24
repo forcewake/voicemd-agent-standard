@@ -1,7 +1,7 @@
 """VOICE.md reference implementation."""
 
 from .activation import ActivationDecision, decide_activation, should_apply_voice
-from .api import compile_voice, discover_voice, lint_voice_text, load_voice
+from .api import compile_voice, discover_voice, lint_voice_text, load_voice, require_valid_voice
 from .compiler import canonical_contract_json, contract_sha256, resolve_context
 from .model import ResolvedVoiceContract, SourceDocument
 
@@ -16,8 +16,9 @@ __all__ = [
     "discover_voice",
     "lint_voice_text",
     "load_voice",
+    "require_valid_voice",
     "resolve_context",
     "should_apply_voice",
 ]
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0a2"

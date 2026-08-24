@@ -31,12 +31,12 @@ voicemd install --target all --mode auto
 voicemd doctor
 ```
 
-Либо из готового wheel внутри release pack:
+Либо из wheel, собранного для текущего release pack. Для draft.2 ожидаемое имя — `voicemd-0.1.0a2-py3-none-any.whl`.
 
-Сначала проверьте, что в `release/BUILD_INFO.json` указано `"artifact_status": "current"`. Wheel со статусом `stale` нельзя считать сборкой текущего source tree.
+Сначала проверьте, что файл существует, в `release/BUILD_INFO.json` указано `"artifact_status": "current"`, а release verifier проходит. Отсутствующий wheel или wheel со статусом `stale` нельзя считать сборкой текущего source tree.
 
 ```bash
-python -m pip install release/voicemd-0.1.0a1-py3-none-any.whl
+python -m pip install release/voicemd-0.1.0a2-py3-none-any.whl
 voicemd doctor
 ```
 
@@ -62,11 +62,11 @@ voicemd compile --compact --max-chars 3500
 # Spoken profile
 voicemd compile --profile voicechat --compact
 
-# NVIDIA NemotronLabs VoiceChat: ASCII-only system instructions
+# NVIDIA NemotronLabs VoiceChat: ASCII-only VoiceMD fragment
 voicemd compile \
   --profile nemotron_voicechat \
   --format nemotron-ascii \
-  --output .voice/nemotron-system.txt
+  --output .voice/nemotron-voice.txt
 
 # Проверить готовый ответ
 voicemd lint --profile executive_brief --file answer.md
@@ -74,6 +74,8 @@ voicemd lint --profile executive_brief --file answer.md
 # Запустить test cases из VOICE.md
 voicemd test
 ```
+
+Не отправляйте этот fragment как единственный `session.instructions`. Reference adapter требует отдельные application-owned base instructions и добавляет VoiceMD ниже них.
 
 ## Как устроены overrides
 
@@ -102,6 +104,8 @@ extends:
 
 Remote URL намеренно не поддерживается core implementation: иначе незаметное изменение удалённого файла меняло бы поведение production-agent.
 
+Все explicit, discovered и inherited sources после canonical path resolution должны остаться внутри approved source root. Symlink не может расширить этот root, а `.env` и `.env.*` не могут быть contract или `extends`. Reference loader также ограничивает один source до 1 MiB, суммарный объём до 4 MiB, уникальные sources до 64, expanded YAML nodes до 20 000, alias references до 100 и глубину `extends` до восьми рёбер. В node budget входят и mapping keys, и values после каждого alias expansion. Эти defaults можно понизить через Python API.
+
 ## Profiles
 
 Profile связывает audience, surface и tone:
@@ -123,6 +127,51 @@ profiles:
 ```bash
 voicemd compile --profile architecture_review
 ```
+
+Profile и explicit selectors применяются до финальной schema/semantic validation. `default_language` нормализуется в `language.default` и проверяется на конфликт после этого merge; в canonical payload alias не остаётся. Blank selector определяется фиксированным Unicode-набором стандарта, а не host-language `trim()`; U+200B считается nonblank. Если конкретная комбинация profile/audience/surface/tone создаёт невалидный contract, runtime обязан остановиться; fallback к непроверенному варианту запрещён.
+
+## Переносимый format и conformance
+
+Structured frontmatter следует YAML 1.2 JSON schema subset. Legacy YAML 1.1 spellings вроде `yes`, `012`, `1_000` и `1:20` остаются строками. Исполняемые count/budget fields принимают finite integral JSON Numbers (`1.0`, `1e0`), нормализуют их в integer и ограничены максимумом `9007199254740991`.
+
+Canonical contract и его hash:
+
+```bash
+voicemd compile --profile architecture_review --format canonical-json
+voicemd compile --profile architecture_review --format sha256
+```
+
+Canonical JSON использует RFC 8785 JCS после более строгой VoiceMD-проверки safe-integer domain и не включает host paths. Language-neutral conformance vectors можно проверить независимым от Python core verifier:
+
+```bash
+node integrations/typescript/generated/conformance-verifier.js \
+  conformance/vectors.json
+```
+
+Он проверяет merge, selection, compact rendering, JCS и hash, но не заменяет полную независимую реализацию parser/discovery/runtime.
+
+Core regex rules используют ASCII-паттерны `portable-safe-v1`: отдельные flags `i`, `m`, `s` разрешены, а alternation, repetition, shorthand classes, lookaround, inline modifiers, backreferences, Unicode escapes и named groups — нет.
+
+## Azure OpenAI regression evals
+
+Runner автоматически читает `.env` из repository root. Нужны следующие environment variables:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_CHAT_DEPLOYMENT=YOUR-DEPLOYMENT
+AZURE_OPENAI_API_VERSION=2024-10-21
+```
+
+```bash
+python evals/run_openai_compatible.py \
+  --provider azure \
+  --voice VOICE.md \
+  --cases evals/prompts.jsonl \
+  --output evals/results.azure.jsonl
+```
+
+Azure mode принимает только HTTPS endpoint, берёт ключ только из environment или `--env-file` и не следует redirects. Это не даёт credential header уйти на другой origin и не раскрывает secret в process list. Для отключения repository-local `.env` используйте `--no-env-file`. Полная eval-процедура описана в `evals/README.md` и `docs/EVALS.md`.
 
 ## Приложения без Python SDK
 

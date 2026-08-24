@@ -29,7 +29,7 @@ spec:
             - name: VOICEMD_URL
               value: http://127.0.0.1:8765
         - name: voicemd
-          image: example/voicemd:0.1.0a1
+          image: example/voicemd:0.1.0a2
           args: ["serve", "--host", "127.0.0.1", "--port", "8765", "--path", "/contracts/VOICE.md", "--no-global", "--quiet"]
           securityContext:
             allowPrivilegeEscalation: false

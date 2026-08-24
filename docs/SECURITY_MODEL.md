@@ -31,7 +31,9 @@ Mitigation: local vendoring, immutable artifact digest, signed release, code rev
 
 An attacker controls `extends` or a sidecar path.
 
-Mitigation: do not let end users choose filesystem paths; resolve IDs through an allowlist and optionally restrict all sources to an approved root.
+Mitigation: do not let end users choose filesystem paths; resolve IDs through an allowlist and restrict all sources to an approved root. The reference loader resolves every explicit, discovered, and inherited source to its canonical target before checking containment. Symlinks cannot cross that boundary. `.env` and `.env.*` path components are rejected before and after resolution.
+
+`load_contract(..., allowed_source_root=...)` and `load_voice(..., allowed_source_root=...)` set one mandatory boundary for every active source. A global contract outside that boundary is rejected; use `include_global=False` when loading a project-only contract. Without an explicit boundary, automatic discovery uses the resolved project root and global configuration directory as separate trusted roots. Operator-selected paths use `VOICE_MD_ROOT`, the nearest lexical project marker, or otherwise the selected path's resolved parent. This preserves reviewed `../shared.md` inheritance inside a project while a file or directory symlink still cannot widen the boundary to its target directory. Pass a broader explicit root only for reviewed contracts that intentionally inherit from another directory.
 
 ### Prompt leakage
 
@@ -55,7 +57,7 @@ Mitigation: keep raw structured result as source of truth; render into prose wit
 
 Cycles or large source chains consume resources.
 
-Mitigation: cycle detection, depth limits, size limits, and source count limits.
+Mitigation: cycle detection, depth limits, per-file and aggregate byte limits, source count limits, YAML syntax/alias/expanded-node budgets, and bounded selected-context expansion. The reference defaults are 1 MiB per source, 4 MiB and 64 unique sources across one load, 20,000 YAML nodes after alias expansion and 100 alias references per source, and 256 selectable contexts. Every expanded mapping key and value is charged, including repeated alias occurrences. Applications can lower source/YAML limits through `load_contract` or `load_voice`; limits must be positive integers. Duplicate canonical sources in an inheritance DAG consume the aggregate byte/source budget once.
 
 ### Sidecar exposure
 
@@ -63,12 +65,23 @@ The reference HTTP server has no authentication.
 
 Mitigation: bind to localhost, use a service mesh/reverse proxy for production, enforce authentication, restrict selectors, and do not expose arbitrary file paths.
 
+### Provider transport and credential forwarding
+
+An OpenAI-compatible endpoint can be misconfigured as plaintext HTTP or redirect a
+credentialed request to another origin. The reference adapter therefore requires
+HTTPS whenever a bearer token is present and never follows redirects. Without a
+credential it permits HTTP only for numeric loopback addresses or `localhost`,
+unless a trusted operator explicitly opts into non-loopback plaintext development
+traffic. Endpoint URLs containing user information, queries, or fragments are
+rejected.
+
 ## Safe deployment checklist
 
 - Validate in strict mode during build.
 - Pin contract and compiler versions.
 - Record source hashes.
 - Restrict source roots.
+- Lower source and YAML budgets for multi-tenant or latency-sensitive services.
 - Disable implicit remote retrieval.
 - Review changes as code.
 - Run authority-boundary and exact-output tests.

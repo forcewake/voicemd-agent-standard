@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from voicemd import compile_voice, decide_activation, load_voice
+from voicemd import compile_voice, decide_activation, load_voice, require_valid_voice
 from voicemd.model import ResolvedVoiceContract
 
 
@@ -33,13 +33,17 @@ def compose_system_messages(
     include_global: bool = True,
 ) -> list[dict[str, str]]:
     messages = [{"role": "system", "content": base_system_prompt}]
-    if not context.voice_enabled or context.exact_output:
-        return messages
-
     active = contract or load_voice(
         start=start,
         path=list(path) if path is not None and not isinstance(path, (str, Path)) else path,
         include_global=include_global,
+    )
+    require_valid_voice(
+        active,
+        profile=context.profile,
+        audience=context.audience,
+        surface=context.surface,
+        tone=context.tone,
     )
     decision = decide_activation(
         active,

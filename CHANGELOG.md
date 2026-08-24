@@ -1,17 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-draft.2 - 2026-08-24
 
-- Aligned normative L0-L3 conformance with schema and reference validation; vacuous tests no longer establish L3.
-- Defined YAML 1.2-compatible parsing, duplicate-key rejection, null deletion, selector-array replacement, canonical selected-contract JSON/SHA-256, and deterministic activation conflicts.
-- Enforced protected authority capabilities, selector references, regex safety, JSON compatibility, profile defaults, extends depth, and DAG traversal.
-- Fixed Nemotron language selection and post-ASCII prompt budgets.
-- Hardened installer path containment, atomic rollback, ownership hashes, mode transitions, explicit-only harness metadata, and adapter diagnostics.
-- Hardened sidecar validation, health, error disclosure, body limits, worker bounds, slow-client timeouts, and external-source provenance.
-- Made release building Git-tracked and hermetic; tied artifacts to a complete source snapshot, rejected nested build/secret files, expanded clean installs, dependency bounds, Docker context controls, CI, and cross-runtime client builds.
-- Added Azure OpenAI regression execution, provider completion metadata, atomic outputs, non-vacuous corpus/provenance gates, broader deterministic cases, and an executable contract-aware model-judge scorer.
+- Defined YAML 1.2 JSON-subset parsing, duplicate-key rejection, bounded alias expansion, null deletion, selector-array replacement, and empty-override discovery behavior.
+- Aligned the core schema and semantic validator, added typed core sections, made invalid contracts `nonconforming`, and required fail-closed validation of each exact selected context.
+- Restricted explicit, discovered, and inherited sources to approved canonical roots; rejected `.env` paths and symlink escapes; added file, aggregate, source-count, YAML-node, alias, and inheritance-depth budgets.
+- Switched portable canonical selected-contract bytes to RFC 8785 JCS, excluded host paths by default, and added language-neutral vectors plus an independent TypeScript core verifier for merge, selection, compact rendering, JCS, and SHA-256 behavior.
+- Defined the bounded `portable-safe-v1` regex subset and consistent `max_words: 0` semantics.
 - Made activation selector-aware and separated trusted marker metadata from untrusted prompt content.
-- Expanded the regression suite from 30 to more than 100 cases and added a branch-coverage gate.
+- Hardened compile, lint, sidecar, MCP, generic OpenAI-compatible, lite-loader, and Nemotron runtime boundaries, including selected-contract validation, strict request parsing, path redaction, timeouts, and activation-aware injection.
+- Hardened Azure/OpenAI-compatible evaluation transport with HTTPS and environment-only credentials, redirect rejection, corpus/result/request/response provenance binding, atomic outputs, and contract-aware model-judge validation.
+- Hardened installer path containment, atomic rollback, ownership hashes, mode transitions, explicit-only harness metadata, and adapter diagnostics.
+- Made release building Git-tracked, pinned, and reproducibility-checked; tied artifacts to a complete source snapshot, rejected nested build/secret files, tightened dependency and Docker-context controls, and expanded CI and cross-runtime checks.
 
 ## 0.1.0-draft.1 - 2026-08-24
 

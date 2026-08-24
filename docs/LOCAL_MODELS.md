@@ -27,7 +27,16 @@ voicemd compile \
 
 ## Hugging Face Transformers
 
-`integrations/transformers/chat_template.py` compiles the contract and inserts it as a system message before calling `tokenizer.apply_chat_template`.
+`integrations/transformers/chat_template.py` requires application-owned base instructions, places them first, and appends the compiled contract as explicitly lower-priority communication guidance before calling `tokenizer.apply_chat_template`:
+
+```bash
+python integrations/transformers/chat_template.py \
+  --model /models/my-instruct-model \
+  --voice VOICE.md \
+  --base-instructions-file examples/application/base-agent-instructions.txt \
+  --profile default \
+  --prompt "Explain the trade-off."
+```
 
 Not every tokenizer supports a system role. When it does not, use the model's documented template and place the voice instructions in the designated instruction section rather than inventing a format.
 
@@ -48,10 +57,11 @@ Build a model wrapper with the compiled prompt:
 ```bash
 voicemd compile --compact --max-chars 3500 --output integrations/ollama/VOICE.compiled.txt
 cd integrations/ollama
-./build.sh my-voice-model base-model-name
+BASE_INSTRUCTIONS_FILE=../../examples/application/base-agent-instructions.txt \
+  ./build.sh my-voice-model base-model-name
 ```
 
-The generated wrapper is convenient for a fixed voice. For dynamic audience/surface selection, inject the system prompt per request instead of baking one profile into a model.
+The generated wrapper places application authority first and the VoiceMD fragment second. It refuses a missing or empty base-instructions file, so VoiceMD cannot become the wrapper's sole authority. For dynamic audience/surface selection, inject both layers per request instead of baking one profile into a model.
 
 ## llama.cpp
 

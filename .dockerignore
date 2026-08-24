@@ -5,7 +5,29 @@
 !LICENSE
 !NOTICE
 !src/
-!src/**
+!src/voicemd/
+!src/voicemd/*.py
+!src/voicemd/resources/
+!src/voicemd/resources/voice.schema.json
+!src/voicemd/resources/skill/
+!src/voicemd/resources/skill/SKILL.md
+!src/voicemd/resources/templates/
+!src/voicemd/resources/templates/*.VOICE.md
 !integrations/
 !integrations/docker/
 !integrations/docker/Dockerfile
+
+# Keep secret-directory denies after every allowlist negation. Docker uses the
+# last matching rule, so moving these above the source allowlist would re-open the leak.
+**/.[eE][nN][vV]
+**/.[eE][nN][vV].*
+**/.[eE][nN][vV]/**
+**/.[eE][nN][vV].*/**
+**/.*
+**/.*/**
+**/__pycache__
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+**/*.egg-info/**

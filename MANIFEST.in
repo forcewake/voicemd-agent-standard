@@ -2,25 +2,25 @@ include LICENSE NOTICE README.md START_HERE_RU.md PACKAGE_CONTENTS.md SPECIFICAT
 include CHANGELOG.md ROADMAP.md GOVERNANCE.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md
 include CITATION.cff manifest.json Makefile pyproject.toml .voicemd-root .dockerignore .gitignore
 include VOICE.md AGENTS.md CLAUDE.md GEMINI.md .aider.voice.yml
-recursive-include schema *
-recursive-include templates *
-recursive-include docs *
-recursive-include rfcs *
-recursive-include adapters *
-recursive-include integrations *
-recursive-include examples *
-recursive-include evals *
-recursive-include lite *
-recursive-include scripts *
-recursive-include tests *.py
-recursive-include .agents *
-recursive-include .claude *
-recursive-include .cline *
-recursive-include .clinerules *
-recursive-include .cursor *
-recursive-include .github *
-recursive-include .windsurf *
-recursive-include .voicemd *
+include constraints/build.txt
+include schema/*
+include conformance/*
+include templates/full/* templates/simple/* templates/spoken/*
+include docs/* docs/decisions/*
+include rfcs/*
+include adapters/* adapters/*/*
+include integrations/* integrations/*/* integrations/typescript/generated/*
+include examples/application/* examples/brand-extension/* examples/compiled/*
+include examples/hierarchy/* examples/hierarchy/apps/*
+include examples/hierarchy/apps/support/*
+include evals/* evals/evidence/*
+include lite/* scripts/* tests/*.py
+include .agents/skills/voice-contract/*
+include .claude/skills/voice-contract/*
+include .cline/skills/voice-contract/* .clinerules/*
+include .cursor/skills/voice-contract/*
+include .github/* .github/workflows/*
+include .windsurf/rules/* .voicemd/*
 prune release
 prune build
 prune dist
@@ -32,4 +32,5 @@ prune htmlcov
 prune integrations/typescript/node_modules
 prune integrations/dotnet/bin
 prune integrations/dotnet/obj
-global-exclude __pycache__ *.py[cod] *.pyo *.egg-info .coverage .DS_Store .env .env.*
+global-exclude __pycache__ *.py[cod] *.pyo *.egg-info .coverage .DS_Store
+global-exclude .[eE][nN][vV] .[eE][nN][vV].*

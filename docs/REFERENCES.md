@@ -2,6 +2,15 @@
 
 Checked on 2026-08-24 unless otherwise stated.
 
+## Data formats and canonicalization
+
+- RFC 8785, JSON Canonicalization Scheme (JCS): https://www.rfc-editor.org/rfc/rfc8785.html
+- YAML 1.2.2 specification: https://yaml.org/spec/1.2.2/
+- JSON Schema Draft 2020-12: https://json-schema.org/draft/2020-12
+- JSON Schema Draft 2020-12 meta-schema: https://json-schema.org/draft/2020-12/schema
+
+VoiceMD structured frontmatter uses the YAML 1.2 JSON schema subset. The resolved contract is validated against the packaged Draft 2020-12 schema. Portable canonical selected-contract bytes use RFC 8785 JCS after an additional VoiceMD safe-integer interoperability check; that narrower numeric policy is a VoiceMD rule, not a requirement imposed by RFC 8785.
+
 ## Agent instructions and skills
 
 - OpenAI Codex, AGENTS.md: https://developers.openai.com/codex/agent-configuration/agents-md

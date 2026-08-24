@@ -47,11 +47,14 @@ def _strict_authority():
 
 
 def test_frontmatter_uses_json_compatible_yaml_12_scalars():
-    metadata, _ = parse_text("---\non: off\nyes_value: yes\ntruth: TRUE\ndate: 2026-08-24\n---\n")
+    metadata, _ = parse_text(
+        "---\non: off\nyes_value: yes\ntruth: true\nupper: TRUE\ndate: 2026-08-24\n---\n"
+    )
     assert metadata == {
         "on": "off",
         "yes_value": "yes",
         "truth": True,
+        "upper": "TRUE",
         "date": "2026-08-24",
     }
     json.dumps(metadata, allow_nan=False)
@@ -66,13 +69,24 @@ def test_empty_frontmatter_is_valid():
     [
         ("x: 1\nx: 2", "duplicate key"),
         ("x: .nan", "non-finite"),
-        ("x: !!timestamp 2026-08-24", "unsupported YAML value"),
+        ("x: !!timestamp 2026-08-24", "explicit YAML tags"),
+        (r'x: "\uD800"', "lone Unicode surrogate"),
         ("? [a, b]\n: value", "unhashable mapping key"),
     ],
 )
 def test_frontmatter_rejects_ambiguous_or_non_json_values(frontmatter, message):
     with pytest.raises(FrontmatterError, match=message):
         parse_text(f"---\n{frontmatter}\n---\n")
+
+
+def test_expanded_yaml_node_budget_counts_mapping_keys_reached_through_aliases():
+    frontmatter = """---
+shared: &shared {first: one, second: two}
+copies: [*shared, *shared]
+---
+"""
+    with pytest.raises(FrontmatterError, match="expanded node limit"):
+        parse_text(frontmatter, max_yaml_nodes=18, max_yaml_aliases=2)
 
 
 def test_null_deletes_inherited_and_new_mapping_values():
@@ -82,6 +96,68 @@ def test_null_deletes_inherited_and_new_mapping_values():
     )
     assert merged == {"language": {"default": "en"}}
     assert deep_merge({}, {"language": {"allowed": None}}) == {"language": {}}
+
+
+@pytest.mark.parametrize("category", ["audiences", "surfaces", "tones", "profiles"])
+@pytest.mark.parametrize("collection", ["rules", "tests", "examples"])
+def test_dormant_selector_id_tombstones_survive_source_merge_until_selection(
+    category: str,
+    collection: str,
+):
+    earlier_overlay = {collection: [{"id": "inherited", "instruction": "earlier"}]}
+    later_overlay = {collection: [{"id": "inherited", "disabled": True}]}
+    if category == "profiles":
+        base_variant = {"overrides": earlier_overlay}
+        override_variant = {"overrides": later_overlay}
+    else:
+        base_variant = earlier_overlay
+        override_variant = later_overlay
+
+    merged = deep_merge(
+        {
+            collection: [{"id": "inherited", "instruction": "base"}],
+            category: {"selected": base_variant},
+        },
+        {category: {"selected": override_variant}},
+    )
+    merged_variant = merged[category]["selected"]
+    selector_overlay = (
+        merged_variant["overrides"] if category == "profiles" else merged_variant
+    )
+    assert selector_overlay[collection] == [{"id": "inherited", "disabled": True}]
+
+    selected = deep_merge(merged, selector_overlay, append_unique_arrays=False)
+    assert selected[collection] == []
+
+
+def test_later_source_can_reenable_a_dormant_selector_id_tombstone():
+    tombstoned = deep_merge(
+        {},
+        {
+            "profiles": {
+                "selected": {
+                    "overrides": {
+                        "rules": [{"id": "inherited", "disabled": True}],
+                    }
+                }
+            }
+        },
+    )
+    reenabled = deep_merge(
+        tombstoned,
+        {
+            "profiles": {
+                "selected": {
+                    "overrides": {
+                        "rules": [{"id": "inherited", "instruction": "later"}],
+                    }
+                }
+            }
+        },
+    )
+    assert reenabled["profiles"]["selected"]["overrides"]["rules"] == [
+        {"id": "inherited", "instruction": "later"}
+    ]
 
 
 def test_conformance_levels_require_concrete_non_vacuous_evidence():
@@ -100,7 +176,8 @@ def test_conformance_levels_require_concrete_non_vacuous_evidence():
         rules=[
             {
                 "id": "no-hype",
-                "pattern": "(?i)hype",
+                "pattern": "hype",
+                "flags": ["i"],
                 "assert": "must_not_match",
             }
         ]
@@ -123,7 +200,7 @@ def test_conformance_levels_require_concrete_non_vacuous_evidence():
 
     vacuous = _contract(tests=[{"id": "empty"}])
     vacuous_result = validate_contract(vacuous)
-    assert vacuous_result.level == "L1-core"
+    assert vacuous_result.level == "nonconforming"
     assert not vacuous_result.ok
 
 
@@ -162,6 +239,17 @@ def test_semantic_validation_rejects_authority_overlap_and_missing_guards():
         authority=_strict_authority(),
     )
     assert validate_contract(valid, strict=True).ok
+
+
+def test_documented_nested_core_fields_are_strict_valid():
+    contract = _contract(
+        activation={"mode": "contextual"},
+        authority=_strict_authority(),
+        interaction={"escalation": "Escalate consequential uncertainty."},
+        formatting={"lists": "Use lists only when they improve scanning."},
+        speech={"pronunciation": "Prefer the provided product pronunciation."},
+    )
+    assert validate_contract(contract, strict=True).ok
 
 
 def test_semantic_validation_rejects_overlaps_bad_references_and_duplicate_ids(
@@ -211,13 +299,77 @@ rules:
     assert "rules: duplicate id" in combined
 
 
+@pytest.mark.parametrize("selector_kind", ["audiences", "surfaces", "tones", "profiles"])
+def test_duplicate_ids_inside_selector_overlays_are_rejected_before_merge(
+    tmp_path: Path,
+    selector_kind: str,
+):
+    selector = (
+        f"{selector_kind}:\n"
+        "  selected:\n"
+        + ("    overrides:\n" if selector_kind == "profiles" else "")
+        + ("      rules:\n" if selector_kind == "profiles" else "    rules:\n")
+        + ("        - {id: duplicate, instruction: first}\n" if selector_kind == "profiles" else "      - {id: duplicate, instruction: first}\n")
+        + ("        - {id: duplicate, instruction: second}\n" if selector_kind == "profiles" else "      - {id: duplicate, instruction: second}\n")
+    )
+    path = tmp_path / "VOICE.md"
+    path.write_text(
+        '''---
+voice_spec: "0.1"
+kind: VoiceContract
+name: Nested duplicate IDs
+identity: {sounds_like: [Direct]}
+'''
+        + selector
+        + "---\n",
+        encoding="utf-8",
+    )
+
+    result = validate_contract(load_contract(paths=[path]))
+    assert not result.ok
+    assert any("rules: duplicate id 'duplicate'" in error for error in result.errors)
+
+
+def test_programmatic_selector_duplicate_ids_are_rejected():
+    contract = _contract(
+        profiles={
+            "selected": {
+                "overrides": {
+                    "tests": [
+                        {
+                            "id": "duplicate",
+                            "response": "first",
+                            "assertions": {"max_words": 1},
+                        },
+                        {
+                            "id": "duplicate",
+                            "response": "second",
+                            "assertions": {"max_words": 1},
+                        },
+                    ]
+                }
+            }
+        }
+    )
+
+    result = validate_contract(contract)
+    assert not result.ok
+    assert any("tests: duplicate id 'duplicate'" in error for error in result.errors)
+
+
 @pytest.mark.parametrize(
     "pattern, expected",
     [
-        ("(a+)+$", "nested quantifier"),
+        ("(a+)+$", "repetition operators"),
         ("(a|aa)+$", "alternation"),
+        ("(a|aa)(a|aa)(a|aa)$", "alternation"),
+        ("a+a+$", "repetition operators"),
+        ("(?i)hype", "inline modifiers"),
+        (r"(a)\1", "backreferences"),
+        (r"\w", "not portable-safe-v1"),
+        ("привет", "must be ASCII"),
         ("[", "invalid regex"),
-        ("a" * 2049, "2048-character"),
+        ("a" * 513, "512-character"),
     ],
 )
 def test_regex_safety_rejects_high_risk_patterns(pattern, expected):
@@ -225,8 +377,8 @@ def test_regex_safety_rejects_high_risk_patterns(pattern, expected):
 
 
 def test_regex_safety_accepts_shipped_rule_patterns():
-    assert regex_safety_error("(?i)^(great|excellent|amazing|absolutely)[!,. ]") is None
-    assert regex_safety_error(r"(?i)\[(laughs|sighs|pauses)\]") is None
+    assert regex_safety_error("^great[!,. ]") is None
+    assert regex_safety_error(r"\[laughs\]") is None
 
 
 def test_default_profile_selector_order_and_array_narrowing():
@@ -290,6 +442,60 @@ def test_legacy_default_language_is_normalized_or_rejected_on_conflict():
 
     conflict = _contract(default_language="ru", language={"default": "en"})
     assert not validate_contract(conflict).ok
+
+
+def test_selector_default_language_alias_is_normalized_after_selection():
+    contract = _contract(
+        profiles={
+            "french": {
+                "overrides": {
+                    "default_language": "fr",
+                    "language": {"allowed": ["fr"]},
+                }
+            }
+        }
+    )
+    result = validate_contract(contract)
+    assert result.ok
+    assert any("deprecated" in warning for warning in result.warnings)
+    payload = json.loads(compile_contract(contract, profile="french", output_format="json"))
+    assert "default_language" not in json.dumps(payload["contract"], ensure_ascii=False)
+    assert payload["contract"]["language"] == {"default": "fr", "allowed": ["fr"]}
+
+    conflicting = _contract(
+        profiles={
+            "bad": {
+                "overrides": {
+                    "default_language": "fr",
+                    "language": {"default": "en"},
+                }
+            }
+        }
+    )
+    conflict_result = validate_contract(conflicting)
+    assert not conflict_result.ok
+    assert any(
+        "profiles.bad" in error and "default_language conflicts" in error
+        for error in conflict_result.errors
+    )
+
+    inherited_conflict = _contract(
+        language={"default": "en"},
+        profiles={"bad": {"overrides": {"default_language": "fr"}}},
+    )
+    inherited_result = validate_contract(inherited_conflict)
+    assert not inherited_result.ok
+    assert any("default_language conflicts" in error for error in inherited_result.errors)
+
+    tombstone = _contract(
+        language={"default": "en", "allowed": ["en"]},
+        profiles={"clear": {"overrides": {"default_language": None}}},
+    )
+    tombstone_payload = json.loads(
+        compile_contract(tombstone, profile="clear", output_format="json")
+    )
+    assert tombstone_payload["contract"]["language"] == {"allowed": ["en"]}
+    assert "default_language" not in json.dumps(tombstone_payload["contract"])
 
 
 def test_json_compilation_rejects_non_finite_programmatic_values():

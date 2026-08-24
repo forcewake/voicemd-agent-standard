@@ -79,7 +79,9 @@ python evals/run_openai_compatible.py \
 
 The API key is used only in the request header and is never written to results. Results record provider, deployment/model, API version, decoding settings, VoiceMD version, contract and prompt hashes, response metadata, and an endpoint hash.
 
-The runner also records the provider-returned model identifier, finish reason, content-filter metadata, and prompt-filter metadata. Non-text, truncated, tool-call, or filtered completions fail the run instead of being scored as ordinary answers. The output file is updated atomically after the complete selected run.
+Azure endpoints must use HTTPS. Secrets are read only from the environment or `--env-file`; command-line `--api-key` and `--azure-api-key` are disabled to keep credentials out of process listings and shell history. HTTP OpenAI-compatible endpoints are limited to credential-free loopback by default. A credential-free non-loopback development endpoint requires the explicit `--allow-insecure-http` flag or `VOICEMD_ALLOW_INSECURE_HTTP=1`. Credentials are never sent over HTTP, and redirects are never followed.
+
+The runner also records the provider-returned model identifier, finish reason, content-filter metadata, prompt-filter metadata, and hashes of the canonical case, full corpus, exact request messages, and response. Non-text, truncated, tool-call, or filtered completions fail the run instead of being scored as ordinary answers. Corpus selection and endpoint policy are validated before the first network call. JSONL, environment, rubric, and judge-prompt inputs have preallocation byte/count limits. The output file is updated atomically after the complete selected run.
 
 Then run deterministic checks:
 
@@ -90,13 +92,13 @@ python evals/score_deterministic.py \
   --results evals/results.jsonl
 ```
 
-This gate is non-vacuous: by default it requires every corpus ID and rejects empty, duplicate, unexpected, corpus-mismatched, or provenance-mismatched results. `--case ID` selects an intentional subset. `--allow-partial` is a debugging escape hatch, not release evidence.
+This gate is non-vacuous: by default it requires every corpus ID and rejects empty, duplicate, unexpected, corpus-mismatched, or provenance-mismatched results. Before assertions or VoiceMD lint run, it recomputes the case and corpus hashes, activation decision, selected-contract and compiled-prompt hashes, exact request-message hash, and response hash. JSONL input is read with per-record, total-file, and record-count limits. `--case ID` selects an intentional subset. `--allow-partial` is a debugging escape hatch, not release evidence.
 
 ### Pairwise evaluation
 
 For subtle voice quality, compare baseline and candidate outputs without revealing which contract version produced each. Ask an evaluator to choose based on a fixed rubric, not general preference.
 
-`evals/score_model.py` executes the bundled judge prompt and rubric through Azure OpenAI or another OpenAI-compatible endpoint, supplies the active compiled VoiceMD contract, validates candidate provenance and the exact returned schema, calculates the weighted score, and fails when the judge reports a critical failure. Its output records judge configuration and prompt/rubric hashes. A same-model judge is useful for plumbing smoke tests but is not independent evidence.
+`evals/score_model.py` executes the bundled judge prompt and rubric through Azure OpenAI or another OpenAI-compatible endpoint. Pass the same canonical corpus used for generation with `--cases`. The judge requires the complete selected corpus and, before making a network call, verifies every canonical case field, a string response, the case/corpus hashes, current VoiceMD version and selected-contract hash, recomputed activation, compiled prompt, exact request-message hash, response hash, and successful completion state. It calculates the weighted score and fails when the judge reports a critical failure. Its output binds each score to the candidate result/case/corpus/response/message hashes and records judge configuration and prompt/rubric hashes. A same-model judge is useful for plumbing smoke tests but is not independent evidence.
 
 ### Human review
 

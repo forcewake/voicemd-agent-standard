@@ -1,6 +1,6 @@
 # VoiceMD: the `VOICE.md` Agent Communication Contract
 
-**Status:** independent draft `0.1.0-draft.1`, dated 2026-08-24. It is usable, tested, and intentionally not presented as an adopted industry standard.
+**Status:** independent draft `0.1.0-draft.2`, dated 2026-08-24, with Python reference implementation `0.1.0a2`. It is usable and testable, and it is intentionally not presented as an adopted industry standard.
 
 Russian entry point: [`START_HERE_RU.md`](START_HERE_RU.md). Full inventory: [`PACKAGE_CONTENTS.md`](PACKAGE_CONTENTS.md).
 
@@ -189,6 +189,8 @@ The reference implementation resolves sources broad-to-specific:
 
 Remote `extends` are rejected by the core implementation. Vendor remote contracts into the repository or build a controlled resolver with pinning and signature verification.
 
+Every source must resolve inside an operator-approved source root; symlinks cannot widen that boundary, and `.env`/`.env.*` files are never accepted as contracts. The reference loader also enforces per-file, aggregate-byte, source-count, YAML-node, alias, and inheritance-depth budgets. Applications may lower these defaults for multi-tenant or latency-sensitive runtimes.
+
 ## Activation model
 
 The default mode is `contextual`:
@@ -219,7 +221,26 @@ Voice is subordinate to correctness and authority. The normative precedence mode
 - **L2 Contextual:** activation, authority, epistemics, interaction, audience/surface/tone profiles, or speech behavior.
 - **L3 Testable:** a non-vacuous deterministic rule or inline executable test case. A skipped external-response case does not establish core L3.
 
-Use `voicemd validate` to report the active level.
+An invalid or empty contract is `nonconforming`; it must not receive an L0-L3 label. Use `voicemd validate` to report the active level. Runtime selection is also fail-closed: the exact audience/surface/tone/profile result is revalidated before compilation, linting, sidecar output, or provider submission.
+
+Core deterministic regex rules use the bounded `portable-safe-v1` subset. It supports ASCII patterns with fixed explicit character classes, anchors, ordinary groups, control/ASCII-hex escapes, and separate `i`, `m`, and `s` flags. Alternation, repetition, shorthand character classes, lookarounds, inline modifiers, backreferences, Unicode escapes, and named groups are outside core L3. Candidate line endings, U+2028, and U+2029 are normalized before matching.
+
+## Portable data and conformance
+
+Structured frontmatter uses the YAML 1.2 JSON schema subset rather than YAML 1.1 implicit typing. For example, `true`, `false`, `null`, and JSON-form numbers are typed; legacy spellings such as `yes`, `012`, `1_000`, and `1:20` remain strings. YAML resource limits count mapping keys and values after alias expansion, so aliases cannot hide an oversized mapping.
+
+Executable count/budget fields accept finite integral JSON Numbers such as `1.0` or `1e0`, normalize them to integers, and reject values outside their field range or above `9007199254740991`. Selector names use an explicitly pinned Unicode whitespace set rather than a language runtime's `trim()` behavior; U+200B ZERO WIDTH SPACE is nonblank.
+
+`voicemd compile --format canonical-json` uses RFC 8785 JSON Canonicalization Scheme (JCS), including ECMAScript number serialization and UTF-16 key ordering, with no Unicode normalization. VoiceMD first applies a stricter cross-language profile that rejects integral values outside the IEEE-754 safe-integer range. `--format sha256` hashes the canonical UTF-8 bytes. Both formats exclude host filesystem paths.
+
+The language-neutral `conformance/vectors.json` covers merge, selection, compact rendering, JCS, and hashing. The bundled TypeScript verifier is independent of the Python compiler for that core:
+
+```bash
+node integrations/typescript/generated/conformance-verifier.js \
+  conformance/vectors.json
+```
+
+This verifier is not a complete second implementation of YAML parsing, filesystem discovery, or runtime adapters.
 
 ## Local and small models
 
@@ -241,7 +262,24 @@ The pack includes examples for:
 - llama.cpp-style system-prompt injection;
 - NVIDIA NemotronLabs VoiceChat 11B.
 
-For NemotronLabs VoiceChat, compile an English spoken profile with `--format nemotron-ascii`; the released runtime accepts a session instruction string and its current documentation requires system prompts and tool responses to be ASCII-only. See `docs/NEMOTRON_VOICECHAT.md`.
+For NemotronLabs VoiceChat, compile an English spoken profile with `--format nemotron-ascii`; the released runtime accepts a session instruction string and its current documentation requires system prompts and tool responses to be ASCII-only. Treat the compiled VoiceMD text as a lower-priority fragment, not the complete session authority. The reference adapter requires separate application-owned base instructions. See `docs/NEMOTRON_VOICECHAT.md`.
+
+## Azure OpenAI evaluation
+
+The evaluation runner supports Azure OpenAI through environment variables or an environment file:
+
+```bash
+export AZURE_OPENAI_ENDPOINT='https://YOUR-RESOURCE.openai.azure.com'
+export AZURE_OPENAI_API_KEY='...'
+export AZURE_OPENAI_CHAT_DEPLOYMENT='YOUR-DEPLOYMENT'
+
+python evals/run_openai_compatible.py \
+  --provider azure \
+  --cases evals/prompts.jsonl \
+  --output evals/results.azure.jsonl
+```
+
+The repository-local `.env` is loaded by default and is ignored by Git. Azure mode requires HTTPS, reads API keys only from the environment or `--env-file`, and rejects redirects. Do not pass secrets as command-line arguments. Generated results contain endpoint and request hashes, not the key or endpoint URL. See `evals/README.md` and `docs/EVALS.md`.
 
 ## CLI
 
@@ -271,6 +309,7 @@ adapters/                  harness-specific integration notes
 integrations/              application, local-model, HTTP, MCP, deployment examples
 templates/                 simple, full, and spoken starters
 evals/                     deterministic and model-based evaluation pack
+conformance/               language-neutral vectors and TypeScript core verifier
 tests/                     reference implementation tests
 docs/                      architecture, security, compatibility, ADRs
 lite/                      no-package-dependency raw loaders (shell uses Python)
@@ -279,7 +318,8 @@ lite/                      no-package-dependency raw loaders (shell uses Python)
 ## Security properties
 
 - Communication rules cannot authorize tools or actions.
-- The compiler rejects remote `extends` by default.
+- The loader contains every source inside approved roots, rejects `.env` paths and remote `extends`, and applies bounded source/YAML budgets.
+- The exact selected contract is validated before any runtime output is emitted.
 - Harness installers reject symlink escapes, preflight multi-file changes, record ownership hashes, and preserve modified managed content.
 - The HTTP sidecar binds to `127.0.0.1` by default and does not provide authentication or remote-contract fetching.
 - A `VOICE.md` from an untrusted upload is prompt input and must not be treated as trusted project configuration.
@@ -294,6 +334,9 @@ The filename and brand-voice concept have prior art, including the independent E
 ## What this package does not claim
 
 - It is not yet a vendor-adopted or standards-body-approved format.
+- The repository does not yet identify a canonical public remote or published canonical schema URL.
+- The bundled TypeScript core verifier is not a full external implementation, and there is no independent implementation report yet.
+- No independent security review has been published, and the ten-contract real-world validation target remains open.
 - It does not make model behavior perfectly deterministic.
 - It does not replace safety policy, identity/role definitions, agent permissions, tool contracts, or product design systems.
 - It does not provide voice cloning, acoustic identity, or speaker biometrics. In this standard, “voice” primarily means communication behavior; the `speech` section covers delivery constraints.

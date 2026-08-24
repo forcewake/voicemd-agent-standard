@@ -20,9 +20,14 @@ VOICE_PROMPT="$(./load-voice.sh)"
 Lite behavior:
 
 - finds `VOICE.override.md`, `VOICE.md`, `.voice/VOICE.override.md`, or `.voice/VOICE.md` from `VOICE_MD_ROOT`, `.voicemd-root`, a VCS root, or a common project manifest to the current directory;
+- treats the first existing candidate as authoritative even when it is empty, so an empty `VOICE.override.md` shadows lower-priority files in the same directory;
+- resolves the project root, start directory, candidate parents, and candidate files canonically; a file or directory symlink may stay inside that root but cannot widen it, and an unsafe or broken active candidate fails closed;
 - concatenates raw files broad-to-specific;
 - does not parse YAML, `extends`, profiles, or tests;
 - does not validate authority rules;
-- leaves runtime activation to the application.
+- provides `should_apply` (Python) and `shouldApply` (Node.js), which apply only to
+  the documented, case-insensitive human-facing output kinds and fail closed for
+  exact, machine-readable, or unknown kinds;
+- leaves profile- and marker-aware activation to the full runtime.
 
 Move to the full CLI when hierarchy, profile selection, linting, ASCII compilation, or governance matters.
