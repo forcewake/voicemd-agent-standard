@@ -1593,6 +1593,11 @@ def test_ci_and_publish_workflows_cover_release_gates_with_pinned_actions():
     assert "docker run --detach" in ci_text
     assert "--trusted-runtime-checks" in ci_text
     assert "--no-isolation" in ci_text
+    package_checkout = ci["jobs"]["package"]["steps"][0]
+    assert package_checkout["with"] == {
+        "fetch-depth": "0",
+        "persist-credentials": "false",
+    }
     assert (
         "node integrations/typescript/generated/conformance-verifier.js "
         "conformance/vectors.json"
