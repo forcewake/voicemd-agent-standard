@@ -627,6 +627,10 @@ def _safe_extract(archive: zipfile.ZipFile, destination: Path) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         with archive.open(info) as source, target.open("wb") as sink:
             shutil.copyfileobj(source, sink)
+        archived_mode = (info.external_attr >> 16) & 0xFFFF
+        # Preserve only the executable intent needed by tracked scripts. Avoid
+        # restoring special or overly broad permission bits from an archive.
+        target.chmod(0o755 if archived_mode & 0o111 else 0o644)
     return root
 
 

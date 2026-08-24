@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import stat
 import subprocess
 import sys
 import tarfile
@@ -285,6 +286,23 @@ def test_release_verifier_rejects_zip_path_traversal(tmp_path: Path):
         pytest.raises(verifier.ReleaseVerificationError, match="unsafe ZIP member"),
     ):
         verifier._validate_archive_members(archive)
+
+
+def test_release_verifier_restores_executable_intent(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "executable.zip"
+    info = zipfile.ZipInfo("voicemd-agent-standard/lite/load-voice.sh")
+    info.create_system = 3
+    info.external_attr = (stat.S_IFREG | 0o755) << 16
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, "#!/bin/sh\n")
+
+    destination = tmp_path / "extracted"
+    with zipfile.ZipFile(archive_path) as archive:
+        verifier._safe_extract(archive, destination)
+
+    extracted = destination / info.filename
+    assert extracted.stat().st_mode & 0o777 == 0o755
 
 
 def test_release_builder_rejects_tracked_env_variant(tmp_path: Path):
