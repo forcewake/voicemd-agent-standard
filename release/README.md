@@ -1,6 +1,6 @@
 # Release artifacts
 
-These `0.1.0a1` artifacts are current for source revision `1c3ddbd577d9eadc830c8bb0481444de29c820b2`. Verify `SHA256SUMS`, `BUILD_INFO.json`, and the final outer ZIP before redistribution.
+These `0.1.0a1` artifacts are current for source revision `7a0e671ad3aead1d5617eb5806bfe7ac702e3738`. Verify `SHA256SUMS`, `BUILD_INFO.json`, and the final outer ZIP before redistribution.
 
 - `voicemd-0.1.0a1-py3-none-any.whl`: installable Python reference CLI/library.
 - `voicemd-0.1.0a1.tar.gz`: Python source distribution containing the full source pack except generated release artifacts.
