@@ -7,6 +7,7 @@
 - Kept exact raw transcription outside VoiceMD activation and added an end-to-end transcribe-to-Realtime authority-boundary showcase.
 - Consolidated public setup and repository inventory into one redesigned README with real Azure output comparisons and a Russian quick start.
 - Added a sanitized, checksum-bound GitHub Pages proof snapshot, canonical project URLs, and PyPI/GitHub publication metadata.
+- Hardened release ZIP verification with binary-safe required-file checks, a closed `release/` inventory, canonical container boundaries, and explicit member-type validation.
 
 ## 0.1.0-draft.2 specification - 2026-08-24
 

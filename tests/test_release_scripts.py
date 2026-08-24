@@ -393,6 +393,25 @@ def _zip_tree(root: Path, output: Path) -> Path:
     return output
 
 
+def _regular_zip_info(name: str) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(name)
+    info.create_system = 3
+    info.external_attr = (stat.S_IFREG | 0o644) << 16
+    info.compress_type = zipfile.ZIP_STORED
+    return info
+
+
+def _insert_before_central_directory(path: Path, payload: bytes) -> None:
+    content = bytearray(path.read_bytes())
+    eocd = content.rfind(b"PK\x05\x06")
+    assert eocd >= 0
+    central_offset = int.from_bytes(content[eocd + 16 : eocd + 20], "little")
+    content[central_offset:central_offset] = payload
+    eocd += len(payload)
+    content[eocd + 16 : eocd + 20] = (central_offset + len(payload)).to_bytes(4, "little")
+    path.write_bytes(content)
+
+
 def test_release_verifier_accepts_complete_current_artifacts(tmp_path: Path):
     verifier = _load_script("verify_release")
     root = _release_tree(tmp_path, verifier)
@@ -410,6 +429,191 @@ def test_release_verifier_accepts_non_utf8_required_wav(tmp_path: Path):
     archive = _zip_tree(root, tmp_path / "release-with-binary-audio.zip")
 
     verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_normalizes_invalid_utf8_in_semantic_text(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    (root / "manifest.json").write_bytes(b"\xff\xfe")
+    archive = _zip_tree(root, tmp_path / "invalid-utf8.zip")
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="valid UTF-8"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_rejects_invalid_utf8_in_required_text(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    (root / ".github/workflows/ci.yml").write_bytes(b"\xff\xfe")
+    archive = _zip_tree(root, tmp_path / "invalid-required-text.zip")
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="valid UTF-8"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_read_nonempty_normalizes_io_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    verifier = _load_script("verify_release")
+    path = tmp_path / "required.txt"
+    path.write_text("present\n", encoding="utf-8")
+
+    def deny_read(_path: Path) -> bytes:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "read_bytes", deny_read)
+    with pytest.raises(verifier.ReleaseVerificationError, match="could not read required file"):
+        verifier._read_nonempty(path)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["release/undeclared.bin", "release/nested/undeclared.bin"],
+)
+def test_release_verifier_rejects_undeclared_release_inventory(
+    tmp_path: Path, relative: str
+):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    unexpected = root / relative
+    unexpected.parent.mkdir(parents=True, exist_ok=True)
+    unexpected.write_bytes(b"undeclared")
+    archive = _zip_tree(root, tmp_path / "undeclared-release-member.zip")
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="release inventory mismatch"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_rejects_zip_prefix(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    archive = _zip_tree(root, tmp_path / "prefixed.zip")
+    archive.write_bytes(b"UNACCOUNTED-PREFIX" + archive.read_bytes())
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="prefix|prepended"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_rejects_zip_trailing_bytes(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    archive = _zip_tree(root, tmp_path / "trailed.zip")
+    archive.write_bytes(archive.read_bytes() + b"UNACCOUNTED-TRAILER")
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="trailing bytes"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_rejects_zip_comment(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(tmp_path, verifier)
+    archive = _zip_tree(root, tmp_path / "commented.zip")
+    with zipfile.ZipFile(archive, "a") as packaged:
+        packaged.comment = b"unaccounted comment"
+
+    with pytest.raises(verifier.ReleaseVerificationError, match="comments are not allowed"):
+        verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_rejects_zip_member_comment(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "member-comment.zip"
+    info = _regular_zip_info(f"{verifier.ARCHIVE_ROOT}/README.md")
+    info.comment = b"unaccounted comment"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, b"fixture\n")
+
+    with (
+        zipfile.ZipFile(archive_path) as archive,
+        pytest.raises(verifier.ReleaseVerificationError, match="member comments"),
+    ):
+        verifier._validate_canonical_zip_container(archive_path, archive)
+
+
+def test_release_verifier_rejects_local_only_zip_extra_field(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "local-extra.zip"
+    info = _regular_zip_info(f"{verifier.ARCHIVE_ROOT}/README.md")
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, b"fixture\n")
+
+    content = bytearray(archive_path.read_bytes())
+    name_size = int.from_bytes(content[26:28], "little")
+    local_extra = b"\xfe\xca\x00\x00"
+    content[28:30] = len(local_extra).to_bytes(2, "little")
+    insert_at = verifier.ZIP_LOCAL_HEADER_SIZE + name_size
+    content[insert_at:insert_at] = local_extra
+    archive_path.write_bytes(content)
+
+    # Update the EOCD central-directory offset for the inserted local-only field.
+    content = bytearray(archive_path.read_bytes())
+    eocd = content.rfind(b"PK\x05\x06")
+    central_offset = int.from_bytes(content[eocd + 16 : eocd + 20], "little")
+    content[eocd + 16 : eocd + 20] = (central_offset + len(local_extra)).to_bytes(
+        4, "little"
+    )
+    archive_path.write_bytes(content)
+
+    with (
+        zipfile.ZipFile(archive_path) as archive,
+        pytest.raises(verifier.ReleaseVerificationError, match="local ZIP extra fields"),
+    ):
+        verifier._validate_canonical_zip_container(archive_path, archive)
+
+
+def test_release_verifier_rejects_gap_before_central_directory(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "central-gap.zip"
+    info = _regular_zip_info(f"{verifier.ARCHIVE_ROOT}/README.md")
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, b"fixture\n")
+    _insert_before_central_directory(archive_path, b"JUNK")
+
+    with (
+        zipfile.ZipFile(archive_path) as archive,
+        pytest.raises(verifier.ReleaseVerificationError, match="before its central directory"),
+    ):
+        verifier._validate_canonical_zip_container(archive_path, archive)
+
+
+@pytest.mark.parametrize(
+    ("name", "mode"),
+    [
+        ("voicemd-agent-standard/not-a-directory", stat.S_IFDIR | 0o755),
+        ("voicemd-agent-standard/not-a-file/", stat.S_IFREG | 0o644),
+    ],
+)
+def test_release_verifier_rejects_zip_member_name_type_mismatch(
+    tmp_path: Path, name: str, mode: int
+):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "type-mismatch.zip"
+    info = zipfile.ZipInfo(name)
+    info.create_system = 3
+    info.external_attr = mode << 16
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, b"payload")
+
+    with (
+        zipfile.ZipFile(archive_path) as archive,
+        pytest.raises(verifier.ReleaseVerificationError, match="name/type mismatch"),
+    ):
+        verifier._validate_archive_members(archive)
+
+
+def test_release_verifier_normalizes_archive_open_io_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "release.zip"
+    archive_path.write_bytes(b"present")
+
+    def deny_open(*_args, **_kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(verifier.zipfile, "ZipFile", deny_open)
+    with pytest.raises(verifier.ReleaseVerificationError, match="invalid release ZIP"):
+        verifier.verify_archive(archive_path, install_checks=False)
 
 
 def test_release_verifier_rejects_artifactless_release(tmp_path: Path):

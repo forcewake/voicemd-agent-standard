@@ -28,6 +28,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 ARCHIVE_ROOT = "voicemd-agent-standard"
+ZIP_EOCD_SIGNATURE = b"PK\x05\x06"
+ZIP_EOCD_SIZE = 22
+ZIP_MAX_COMMENT_SIZE = 65_535
+ZIP_LOCAL_HEADER_SIGNATURE = b"PK\x03\x04"
+ZIP_LOCAL_HEADER_SIZE = 30
 MAX_MEMBER_SIZE = 64 * 1024 * 1024
 MAX_TOTAL_SIZE = 256 * 1024 * 1024
 MAX_ARCHIVE_MEMBERS = 20_000
@@ -35,6 +40,12 @@ MAX_SUBPROCESS_OUTPUT = 1024 * 1024
 SUBPROCESS_TIMEOUT_SECONDS = 180
 SOURCE_SNAPSHOT_DOMAIN = b"VoiceMD source snapshot v2\0"
 SUPPLY_CHAIN_FILES = {"SBOM.spdx.json", "PROVENANCE.intoto.jsonl"}
+FIXED_RELEASE_FILES = {
+    "BUILD_INFO.json",
+    "README.md",
+    "SHA256SUMS",
+    "VERIFICATION.md",
+}
 GENERATED_SDIST_SETUP_CFG = b"[egg_info]\ntag_build = \ntag_date = 0\n\n"
 REQUIRED = {
     ".github/workflows/ci.yml",
@@ -294,15 +305,97 @@ def sha256(path: Path) -> str:
 
 
 def _require_nonempty_file(path: Path) -> None:
-    if not path.is_file():
-        raise ReleaseVerificationError(f"required file missing: {path}")
-    if path.stat().st_size <= 0:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError as exc:
+        raise ReleaseVerificationError(f"required file missing: {path}") from exc
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not inspect required file: {path}") from exc
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ReleaseVerificationError(f"required path is not a regular file: {path}")
+    if metadata.st_size <= 0:
         raise ReleaseVerificationError(f"required file is empty: {path}")
+
+
+def _decode_utf8(content: bytes, *, label: str) -> str:
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ReleaseVerificationError(f"{label} must be valid UTF-8") from exc
 
 
 def _read_nonempty(path: Path) -> str:
     _require_nonempty_file(path)
-    return path.read_text(encoding="utf-8")
+    try:
+        content = path.read_bytes()
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not read required file: {path}") from exc
+    return _decode_utf8(content, label=f"required text file {path}")
+
+
+def _verify_release_inventory(directory: Path, expected: set[str]) -> None:
+    try:
+        entries = list(directory.iterdir())
+    except OSError as exc:
+        raise ReleaseVerificationError(
+            f"could not inspect release inventory: {directory}"
+        ) from exc
+
+    actual: set[str] = set()
+    non_files: set[str] = set()
+    for entry in entries:
+        try:
+            metadata = entry.lstat()
+        except OSError as exc:
+            raise ReleaseVerificationError(
+                f"could not inspect release inventory member: {entry}"
+            ) from exc
+        if stat.S_ISREG(metadata.st_mode):
+            actual.add(entry.name)
+        else:
+            non_files.add(entry.name)
+
+    missing = sorted(expected - actual)
+    unexpected = sorted((actual - expected) | non_files)
+    if missing or unexpected:
+        raise ReleaseVerificationError(
+            "release inventory mismatch; "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
+
+def _archive_stream_size(path: Path, archive: zipfile.ZipFile) -> int:
+    stream = archive.fp
+    if stream is None:
+        raise ReleaseVerificationError(f"release ZIP is closed: {path}")
+    try:
+        position = stream.tell()
+        stream.seek(0, os.SEEK_END)
+        size = stream.tell()
+        stream.seek(position)
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not inspect release ZIP: {path}") from exc
+    return size
+
+
+def _read_archive_range(
+    path: Path,
+    archive: zipfile.ZipFile,
+    *,
+    offset: int,
+    size: int,
+) -> bytes:
+    stream = archive.fp
+    if stream is None:
+        raise ReleaseVerificationError(f"release ZIP is closed: {path}")
+    try:
+        position = stream.tell()
+        stream.seek(offset)
+        content = stream.read(size)
+        stream.seek(position)
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not inspect release ZIP: {path}") from exc
+    return content
 
 
 def _strict_json(text: str, *, label: str) -> object:
@@ -709,14 +802,20 @@ def verify_wheel(
                 if wheel_name not in file_names or wheel.read(wheel_name) != source.read_bytes():
                     raise ReleaseVerificationError(f"wheel license file is missing or stale: {wheel_name}")
             entry_points = f"{dist_info_root}/entry_points.txt"
-            if wheel.read(entry_points).decode("utf-8").strip() != (
+            if _decode_utf8(
+                wheel.read(entry_points),
+                label="wheel console entry point",
+            ).strip() != (
                 "[console_scripts]\n"
                 "voicemd = voicemd.cli:main\n"
                 "voicemd-azure = voicemd.azure_voice.cli:main"
             ):
                 raise ReleaseVerificationError("wheel console entry point is unexpected")
             top_level = f"{dist_info_root}/top_level.txt"
-            if wheel.read(top_level).decode("utf-8").strip() != "voicemd":
+            if _decode_utf8(
+                wheel.read(top_level),
+                label="wheel top-level package declaration",
+            ).strip() != "voicemd":
                 raise ReleaseVerificationError("wheel top-level package declaration is unexpected")
         _verify_wheel_record(wheel, record_names[0], file_names)
 
@@ -1137,6 +1236,10 @@ def verify_artifacts(root: Path) -> tuple[Path, Path]:
     artifact_metadata = build_info["artifacts"]
     release_metadata = build_info["release_metadata"]
     declared = set(artifact_metadata) | set(release_metadata)
+    _verify_release_inventory(
+        root / "release",
+        FIXED_RELEASE_FILES | declared,
+    )
     checksums = _parse_checksums(_read_nonempty(root / "release/SHA256SUMS"))
     if set(checksums) != declared:
         missing = sorted(declared - set(checksums))
@@ -1193,6 +1296,119 @@ def verify_artifacts(root: Path) -> tuple[Path, Path]:
     return wheel, sdist
 
 
+def _validate_canonical_zip_container(path: Path, archive: zipfile.ZipFile) -> None:
+    try:
+        archive_size = path.stat().st_size
+        tail_size = min(archive_size, ZIP_EOCD_SIZE + ZIP_MAX_COMMENT_SIZE)
+        with path.open("rb") as stream:
+            stream.seek(archive_size - tail_size)
+            tail = stream.read(tail_size)
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not inspect release ZIP: {path}") from exc
+
+    eocd_index = tail.rfind(ZIP_EOCD_SIGNATURE)
+    if eocd_index < 0 or len(tail) - eocd_index < ZIP_EOCD_SIZE:
+        raise ReleaseVerificationError(f"release ZIP has no valid end record: {path}")
+    eocd_offset = archive_size - tail_size + eocd_index
+    comment_size = int.from_bytes(tail[eocd_index + 20 : eocd_index + 22], "little")
+    if comment_size or archive.comment:
+        raise ReleaseVerificationError("release ZIP comments are not allowed")
+    if eocd_offset + ZIP_EOCD_SIZE != archive_size:
+        raise ReleaseVerificationError("release ZIP contains trailing bytes")
+
+    disk_number = int.from_bytes(tail[eocd_index + 4 : eocd_index + 6], "little")
+    central_disk = int.from_bytes(tail[eocd_index + 6 : eocd_index + 8], "little")
+    disk_members = int.from_bytes(tail[eocd_index + 8 : eocd_index + 10], "little")
+    total_members = int.from_bytes(tail[eocd_index + 10 : eocd_index + 12], "little")
+    central_size = int.from_bytes(tail[eocd_index + 12 : eocd_index + 16], "little")
+    central_offset = int.from_bytes(tail[eocd_index + 16 : eocd_index + 20], "little")
+    if disk_number or central_disk or disk_members != total_members:
+        raise ReleaseVerificationError("multi-disk release ZIPs are not allowed")
+    if total_members == 0xFFFF or central_size == 0xFFFFFFFF or central_offset == 0xFFFFFFFF:
+        raise ReleaseVerificationError("ZIP64 release containers are not allowed")
+
+    infos = archive.infolist()
+    if total_members != len(infos):
+        raise ReleaseVerificationError("release ZIP member count does not match its end record")
+    if archive.start_dir != central_offset or any(info.header_offset < 0 for info in infos):
+        raise ReleaseVerificationError("release ZIP contains a prefix or prepended data")
+    if infos and min(info.header_offset for info in infos) != 0:
+        raise ReleaseVerificationError("release ZIP contains a prefix or prepended data")
+    if central_offset + central_size != eocd_offset:
+        raise ReleaseVerificationError("release ZIP contains unaccounted container data")
+    if any(info.comment for info in infos):
+        raise ReleaseVerificationError("release ZIP member comments are not allowed")
+    if any(info.extra for info in infos):
+        raise ReleaseVerificationError("release ZIP member extra fields are not allowed")
+
+    ordered_infos = sorted(infos, key=lambda info: info.header_offset)
+    expected_offset = 0
+    try:
+        with path.open("rb") as stream:
+            for info in ordered_infos:
+                if info.header_offset != expected_offset:
+                    raise ReleaseVerificationError(
+                        "release ZIP contains data between local member records"
+                    )
+                stream.seek(info.header_offset)
+                header = stream.read(ZIP_LOCAL_HEADER_SIZE)
+                if (
+                    len(header) != ZIP_LOCAL_HEADER_SIZE
+                    or header[:4] != ZIP_LOCAL_HEADER_SIGNATURE
+                ):
+                    raise ReleaseVerificationError(
+                        f"invalid local ZIP header: {info.filename}"
+                    )
+                flags = int.from_bytes(header[6:8], "little")
+                compression = int.from_bytes(header[8:10], "little")
+                crc = int.from_bytes(header[14:18], "little")
+                compressed_size = int.from_bytes(header[18:22], "little")
+                uncompressed_size = int.from_bytes(header[22:26], "little")
+                name_size = int.from_bytes(header[26:28], "little")
+                extra_size = int.from_bytes(header[28:30], "little")
+                if flags & 0x08:
+                    raise ReleaseVerificationError(
+                        f"ZIP data descriptors are not allowed: {info.filename}"
+                    )
+                if extra_size:
+                    raise ReleaseVerificationError(
+                        f"local ZIP extra fields are not allowed: {info.filename}"
+                    )
+                encoded_name = stream.read(name_size)
+                expected_name = info.filename.encode(
+                    "utf-8" if flags & 0x800 else "cp437"
+                )
+                if encoded_name != expected_name:
+                    raise ReleaseVerificationError(
+                        f"local ZIP filename mismatch: {info.filename}"
+                    )
+                if (
+                    flags != info.flag_bits
+                    or compression != info.compress_type
+                    or crc != info.CRC
+                    or compressed_size != info.compress_size
+                    or uncompressed_size != info.file_size
+                ):
+                    raise ReleaseVerificationError(
+                        f"local and central ZIP metadata differ: {info.filename}"
+                    )
+                expected_offset = (
+                    info.header_offset
+                    + ZIP_LOCAL_HEADER_SIZE
+                    + name_size
+                    + extra_size
+                    + compressed_size
+                )
+    except ReleaseVerificationError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise ReleaseVerificationError(f"could not inspect local ZIP records: {path}") from exc
+    if expected_offset != central_offset:
+        raise ReleaseVerificationError(
+            "release ZIP contains data before its central directory"
+        )
+
+
 def _validate_archive_members(archive: zipfile.ZipFile) -> None:
     infos = archive.infolist()
     seen: set[str] = set()
@@ -1219,8 +1435,17 @@ def _validate_archive_members(archive: zipfile.ZipFile) -> None:
         file_type = stat.S_IFMT(mode)
         if file_type == stat.S_IFLNK:
             raise ReleaseVerificationError(f"symbolic link in release ZIP: {name}")
-        if file_type not in {0, stat.S_IFREG, stat.S_IFDIR}:
-            raise ReleaseVerificationError(f"unsupported ZIP member type: {name}")
+        is_directory = info.is_dir()
+        if is_directory != (file_type == stat.S_IFDIR):
+            raise ReleaseVerificationError(
+                f"ZIP member name/type mismatch: {name}"
+            )
+        if is_directory:
+            raise ReleaseVerificationError(f"directory entries are not allowed: {name}")
+        if info.create_system != 3 or file_type != stat.S_IFREG:
+            raise ReleaseVerificationError(
+                f"release ZIP member must be a Unix regular file: {name}"
+            )
         if info.file_size > MAX_MEMBER_SIZE:
             raise ReleaseVerificationError(f"oversized ZIP member: {name}")
         total_size += info.file_size
@@ -1228,8 +1453,6 @@ def _validate_archive_members(archive: zipfile.ZipFile) -> None:
             raise ReleaseVerificationError("release ZIP exceeds uncompressed size limit")
 
         relative_parts = raw_parts[1:]
-        if info.is_dir():
-            continue
         if not relative_parts:
             raise ReleaseVerificationError("archive root may not be a file")
         relative = PurePosixPath(*relative_parts)
@@ -1265,6 +1488,17 @@ def _safe_extract(archive: zipfile.ZipFile, destination: Path) -> Path:
         # restoring special or overly broad permission bits from an archive.
         target.chmod(0o755 if archived_mode & 0o111 else 0o644)
     return root
+
+
+def _verify_zip_integrity(path: Path, archive: zipfile.ZipFile) -> None:
+    _validate_canonical_zip_container(path, archive)
+    _validate_archive_members(archive)
+    try:
+        corrupt = archive.testzip()
+    except (OSError, EOFError, RuntimeError, NotImplementedError, zipfile.BadZipFile) as exc:
+        raise ReleaseVerificationError(f"could not verify release ZIP members: {path}") from exc
+    if corrupt:
+        raise ReleaseVerificationError(f"corrupt ZIP member: {corrupt}")
 
 
 def _bounded_process_output(content: bytes, *, truncated: bool) -> str:
@@ -1472,7 +1706,7 @@ def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> Non
         cwd=root,
         env=smoke_env,
     )
-    prompt = output.read_text(encoding="utf-8")
+    prompt = _read_nonempty(output)
     if not prompt.isascii() or len(prompt) > 5000:
         raise ReleaseVerificationError("Nemotron smoke output is not valid ASCII within budget")
 
@@ -1574,25 +1808,38 @@ def verify_archive(path: Path, *, install_checks: bool = False) -> None:
         raise ReleaseVerificationError(f"archive not found: {path}")
     try:
         archive = zipfile.ZipFile(path)
-    except zipfile.BadZipFile as exc:
+    except (OSError, RuntimeError, zipfile.BadZipFile) as exc:
         raise ReleaseVerificationError(f"invalid release ZIP: {path}") from exc
-    with archive:
-        _validate_archive_members(archive)
-        corrupt = archive.testzip()
-        if corrupt:
-            raise ReleaseVerificationError(f"corrupt ZIP member: {corrupt}")
-        with tempfile.TemporaryDirectory(prefix="voicemd-release-") as directory:
-            temporary = Path(directory)
-            root = _safe_extract(archive, temporary)
-            for relative in REQUIRED:
-                required_path = root / relative
-                if relative in REQUIRED_BINARY_FILES:
-                    _require_nonempty_file(required_path)
-                else:
-                    _read_nonempty(required_path)
-            wheel, sdist = verify_artifacts(root)
-            if install_checks:
-                verify_runtime(root, wheel, sdist, temporary)
+    try:
+        with archive:
+            _verify_zip_integrity(path, archive)
+            with tempfile.TemporaryDirectory(prefix="voicemd-release-") as directory:
+                temporary = Path(directory)
+                try:
+                    root = _safe_extract(archive, temporary)
+                except (
+                    OSError,
+                    EOFError,
+                    RuntimeError,
+                    NotImplementedError,
+                    zipfile.BadZipFile,
+                ) as exc:
+                    raise ReleaseVerificationError(
+                        f"could not extract release ZIP: {path}"
+                    ) from exc
+                for relative in REQUIRED:
+                    required_path = root / relative
+                    if relative in REQUIRED_BINARY_FILES:
+                        _require_nonempty_file(required_path)
+                    else:
+                        _read_nonempty(required_path)
+                wheel, sdist = verify_artifacts(root)
+                if install_checks:
+                    verify_runtime(root, wheel, sdist, temporary)
+    except ReleaseVerificationError:
+        raise
+    except OSError as exc:
+        raise ReleaseVerificationError(f"could not verify release ZIP: {path}") from exc
 
 
 def verify_archive_provenance(
@@ -1614,20 +1861,24 @@ def verify_archive_provenance(
     except (zipfile.BadZipFile, OSError) as exc:
         raise ReleaseVerificationError(f"invalid release ZIP: {archive_path}") from exc
     with archive:
-        _validate_archive_members(archive)
-        corrupt = archive.testzip()
-        if corrupt:
-            raise ReleaseVerificationError(f"corrupt ZIP member: {corrupt}")
+        _verify_zip_integrity(archive_path, archive)
         try:
             raw = archive.read(f"{ARCHIVE_ROOT}/release/BUILD_INFO.json")
-        except (KeyError, OSError) as exc:
+        except (
+            KeyError,
+            OSError,
+            EOFError,
+            RuntimeError,
+            NotImplementedError,
+            zipfile.BadZipFile,
+        ) as exc:
             raise ReleaseVerificationError(
                 "could not read BUILD_INFO.json from release archive"
             ) from exc
-    try:
-        build_info = _strict_json(raw.decode("utf-8"), label="embedded BUILD_INFO.json")
-    except UnicodeDecodeError as exc:
-        raise ReleaseVerificationError("embedded BUILD_INFO.json is not UTF-8") from exc
+    build_info = _strict_json(
+        _decode_utf8(raw, label="embedded BUILD_INFO.json"),
+        label="embedded BUILD_INFO.json",
+    )
     if not isinstance(build_info, dict):
         raise ReleaseVerificationError("embedded BUILD_INFO.json must contain an object")
     source_revision = build_info.get("source_revision")
