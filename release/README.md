@@ -1,6 +1,6 @@
 # Release artifacts
 
-This directory contains the current Python reference release `0.1.0a2` for specification `0.1.0-draft.2`.
+These `0.1.0a2` files were built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c` and are stale for the newer source tree. Do not install or redistribute them as the current release; rebuild and verify replacement artifacts first.
 
 - `voicemd-0.1.0a2-py3-none-any.whl`: installable Python CLI and library.
 - `voicemd-0.1.0a2.tar.gz`: normalized Python source distribution.

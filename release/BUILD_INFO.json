@@ -3,7 +3,7 @@
   "package_name": "voicemd",
   "specification_version": "0.1.0-draft.2",
   "package_version": "0.1.0a2",
-  "artifact_status": "current",
+  "artifact_status": "stale",
   "source_revision": "fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c",
   "release_revision": "fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c",
   "source_sha256": "dbd1a9ce766a12ddd1a5555a3443a4ad4fe21d27ca9d3170b2118456e8bbe934",

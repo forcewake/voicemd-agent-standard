@@ -21,6 +21,7 @@ import pytest
 import yaml
 
 REPOSITORY_ROOT = Path(__file__).parents[1]
+FIXTURE_REVISION = "a" * 40
 
 
 def _load_script(name: str):
@@ -299,7 +300,8 @@ def _release_tree(tmp_path: Path, verifier, *, status: str = "current") -> Path:
         wheel_name: {"sha256": _digest(wheel)},
         sdist_name: {"sha256": _digest(sdist)},
     }
-    source_revision = _head(REPOSITORY_ROOT)
+    # The fixture must remain runnable from an sdist, where the project has no .git.
+    source_revision = FIXTURE_REVISION
     release_revision = source_revision
     source_snapshot = verifier.source_snapshot_sha256(root)
     distribution_metadata = builder.DistributionMetadata(

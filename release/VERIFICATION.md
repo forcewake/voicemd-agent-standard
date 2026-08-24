@@ -1,6 +1,6 @@
-# Verification record — 2026-08-24
+# Historical verification record — 2026-08-24
 
-Package `0.1.0a2` was built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c`. `BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash. The embedded provenance is unsigned; the public release workflow is responsible for platform attestation of the exact committed bytes.
+This record applies to the stale `0.1.0a2` files built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c`; it does not verify the newer source tree. The embedded provenance is unsigned.
 
 - [x] 297 unit and regression tests passed on Python 3.12.7, 3.13.12, and 3.14.5.
 - [x] Branch-aware coverage was 83%, above the configured 75% gate.
