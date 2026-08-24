@@ -1,6 +1,6 @@
-# Historical verification record — 2026-08-24
+# Verification record — 2026-08-24
 
-This record applies to the stale `0.1.0a2` files built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c`; it does not verify the newer source tree. The embedded provenance is unsigned.
+Package `0.1.0a2` was rebuilt from source revision `3bbeabacb606b8919b097b7db293652e750e76b6`. `BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash. The embedded provenance is unsigned; the public release workflow is responsible for platform attestation of the exact committed bytes.
 
 - [x] 297 unit and regression tests passed on Python 3.12.7, 3.13.12, and 3.14.5.
 - [x] Branch-aware coverage was 83%, above the configured 75% gate.
@@ -14,6 +14,7 @@ This record applies to the stale `0.1.0a2` files built from source revision `fc7
 - [x] Wheel and normalized sdist were built twice with the exact pinned toolchain and were byte-identical across both builds.
 - [x] Twine metadata checks passed; wheel `RECORD`, package contents, and sdist inventory were verified exactly.
 - [x] SPDX 2.3 SBOM and unsigned in-toto/SLSA provenance were generated deterministically and verified against the two distributions.
+- [x] The release test fixtures are independent of repository metadata and can run from an sdist without `.git`.
 - [x] JSON, JSONL, YAML, TOML, OpenAPI, GitHub Actions, Docker Compose, Kubernetes YAML, CFF, and local Markdown-link checks passed.
 - [x] Source containment, symlink and `extends` handling, YAML resource limits, selector tombstones, sidecar limits, release archive limits, and evaluation provenance have regression coverage.
 - [x] Nemotron compilation is ASCII-only, preserves higher-priority application instructions, and stays within the total 5,000-character instruction budget.

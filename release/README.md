@@ -1,6 +1,6 @@
 # Release artifacts
 
-These `0.1.0a2` files were built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c` and are stale for the newer source tree. Do not install or redistribute them as the current release; rebuild and verify replacement artifacts first.
+This directory contains the current Python reference release `0.1.0a2` for specification `0.1.0-draft.2`.
 
 - `voicemd-0.1.0a2-py3-none-any.whl`: installable Python CLI and library.
 - `voicemd-0.1.0a2.tar.gz`: normalized Python source distribution.
@@ -26,8 +26,8 @@ python scripts/verify_release.py \
   --distributions release \
   --metadata release \
   --source-root . \
-  --source-revision fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c \
-  --release-revision fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c
+  --source-revision 3bbeabacb606b8919b097b7db293652e750e76b6 \
+  --release-revision 3bbeabacb606b8919b097b7db293652e750e76b6
 ```
 
 `--trusted-runtime-checks` additionally installs and executes artifact code on the host. It is only appropriate for a self-built or otherwise trusted artifact and is not a sandbox or authenticity proof.

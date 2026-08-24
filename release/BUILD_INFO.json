@@ -3,27 +3,27 @@
   "package_name": "voicemd",
   "specification_version": "0.1.0-draft.2",
   "package_version": "0.1.0a2",
-  "artifact_status": "stale",
-  "source_revision": "fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c",
-  "release_revision": "fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c",
-  "source_sha256": "dbd1a9ce766a12ddd1a5555a3443a4ad4fe21d27ca9d3170b2118456e8bbe934",
+  "artifact_status": "current",
+  "source_revision": "3bbeabacb606b8919b097b7db293652e750e76b6",
+  "release_revision": "3bbeabacb606b8919b097b7db293652e750e76b6",
+  "source_sha256": "787576c5202b4614677d28f44ae870eabf7b203a58b530059b31ac7c3f3429c0",
   "built_at": "2026-08-24",
   "python": "3.14.5",
   "tests_passed": 297,
   "artifacts": {
     "voicemd-0.1.0a2-py3-none-any.whl": {
-      "sha256": "d83a6bbbfa118d4dd851ea5aa7e69aa8634047386b6374f04e9babefbdbcd1b3"
+      "sha256": "a62613e94d53a218692faf3077e83b3f2b519c1e6020ba0e613ab655f3ececa8"
     },
     "voicemd-0.1.0a2.tar.gz": {
-      "sha256": "8ce1b414933d97420d1d16f97d02a7595e9b168d52704a9e85831a70100ed734"
+      "sha256": "ee7a83aa2f531f7d49c83c1c98aec5b05acaaa063bcad7cf174054513de6a323"
     }
   },
   "release_metadata": {
     "PROVENANCE.intoto.jsonl": {
-      "sha256": "72687c4c35ae87671078cd8f83027a24f85072a3d3ce5d0394b88788546b5526"
+      "sha256": "a15bba84af9f179de9fcfbcccc23b0e0ff989ebf7389888bded111bbb65e264a"
     },
     "SBOM.spdx.json": {
-      "sha256": "4bb8f2d95a2a68116fd6bd45c4a8c2657a9b4b5d9146a7df850ab3dbd400d030"
+      "sha256": "9615a9d9a23b8610f444fb7fb648ffb6e800dfb578a98615f1f979d17395d527"
     }
   },
   "verification": [
