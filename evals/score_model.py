@@ -9,7 +9,7 @@ import json
 import math
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from voicemd import load_voice
@@ -321,7 +321,7 @@ def main() -> int:
                     "candidate_case_sha256": candidate["case_sha256"],
                     "candidate_corpus_sha256": candidate["corpus_sha256"],
                     "candidate_result_sha256": candidate["result_sha256"],
-                    "generated_at": datetime.now(UTC).isoformat(),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
                     "latency_ms": latency_ms,
                     **metadata,
                 }

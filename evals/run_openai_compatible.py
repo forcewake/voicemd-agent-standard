@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from voicemd import __version__, compile_voice, contract_sha256, decide_activation, load_voice
@@ -718,7 +718,7 @@ def main() -> int:
                         hashlib.sha256(voice.encode("utf-8")).hexdigest() if voice else None
                     ),
                     "response_sha256": hashlib.sha256(response.encode("utf-8")).hexdigest(),
-                    "generated_at": datetime.now(UTC).isoformat(),
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
                     "latency_ms": latency_ms,
                     **response_metadata,
                 }

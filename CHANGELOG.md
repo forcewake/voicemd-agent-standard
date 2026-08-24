@@ -8,6 +8,7 @@
 - Consolidated public setup and repository inventory into one redesigned README with real Azure output comparisons and a Russian quick start.
 - Added a sanitized, checksum-bound GitHub Pages proof snapshot, canonical project URLs, and PyPI/GitHub publication metadata.
 - Hardened release ZIP verification with binary-safe required-file checks, a closed `release/` inventory, canonical container boundaries, and explicit member-type validation.
+- Restored Python 3.10 compatibility in the eval tools, made the sdist regression version-aware, and updated pinned GitHub Actions to their Node 24 releases.
 
 ## 0.1.0-draft.2 specification - 2026-08-24
 

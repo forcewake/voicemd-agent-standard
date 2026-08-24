@@ -20,6 +20,8 @@ from pathlib import Path, PurePosixPath
 import pytest
 import yaml
 
+from voicemd import __version__
+
 REPOSITORY_ROOT = Path(__file__).parents[1]
 FIXTURE_REVISION = "a" * 40
 
@@ -816,7 +818,7 @@ def test_ordinary_sdist_build_excludes_env_path_components(tmp_path: Path):
     verifier.verify_sdist(
         sdist,
         package_name="voicemd",
-        package_version="0.1.0a2",
+        package_version=__version__,
         source_root=source_root,
     )
 
