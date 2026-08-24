@@ -1,6 +1,6 @@
 """Minimal direct integration."""
 
-from voicemd import compile_voice, lint_voice_text
+from voicemd import compile_voice
 
 BASE_SYSTEM_PROMPT = "You are the architecture review agent. Follow approved tool and data policies."
 

@@ -64,6 +64,10 @@ A file contains:
 
 A plain Markdown file with no frontmatter is a valid L0 contract.
 
+Structured frontmatter MUST use the JSON-compatible YAML subset. Mapping keys MUST be strings and MUST NOT be duplicated. Implementations MUST parse only `true` and `false` (case-insensitive) as implicit booleans; YAML 1.1 spellings such as `yes`, `no`, `on`, and `off` are strings. Date-shaped scalars are strings unless an implementation rejects an explicit non-JSON timestamp tag. Non-finite numbers, sets, binary values, recursive aliases, and other values that cannot be represented in strict JSON MUST be rejected. YAML aliases MAY be supported when the resulting value is an acyclic JSON-compatible tree.
+
+The published JSON Schema describes the fully resolved contract. An individual source used as an `extends` file or hierarchy overlay MAY be partial and MAY contain merge-time `null` deletion operators; implementations MUST resolve those sources before applying the schema.
+
 ## 5. Minimal structured contract
 
 ```yaml
@@ -90,13 +94,13 @@ A non-empty Markdown file. No structured parsing is required. An implementation 
 
 ### 6.2 L1 Core
 
-Valid structured frontmatter plus concrete identity, response, language, lexicon, or formatting guidance.
+Valid structured frontmatter plus concrete communication guidance. Guidance is concrete when the resolved contract has non-empty Markdown, identity, response, language, lexicon, formatting, or an enabled rule with an instruction, description, or pattern. Metadata alone does not conform to L1.
 
 ### 6.3 L2 Contextual
 
-Adds one or more of:
+An L1 contract that adds one or more of:
 
-- explicit activation and authority boundaries;
+- explicit activation or authority boundaries;
 - epistemic or interaction behavior;
 - audience, surface, tone, or profile variants;
 - speech behavior;
@@ -104,7 +108,13 @@ Adds one or more of:
 
 ### 6.4 L3 Testable
 
-Adds deterministic `rules`, `tests`, or an equivalent conformance/evaluation suite.
+An L1 contract with at least one non-vacuous deterministic rule or locally executable deterministic test. An implementation MAY report L3 whether or not the contract also uses L2 contextual features.
+
+A deterministic rule contributes to L3 only when it is enabled and defines a valid supported `pattern` plus an explicit `assert`. A test contributes only when it is enabled, supplies an inline string `response`, and has at least one effective core assertion. `must_contain` and `must_not_contain` are effective only when non-empty; `ascii_only` and `lint_clean` are effective only when true. A test that requires an externally supplied response remains valid evaluation metadata but does not by itself establish L3 in the reference validator.
+
+An external conformance suite MAY establish an ecosystem-specific level, but the core `L3-testable` result is based only on deterministic evidence present in the resolved contract. Implementations MUST NOT assign L3 merely because a `rules` or `tests` array is non-empty.
+
+The reference CLI `--strict` option is an additional deployment-validation profile, not another conformance level. It rejects L0 and structured metadata without concrete guidance, and requires `activation.mode` plus the complete authority declaration described in Section 11.1. A contract can conform to L1 or L2 without opting into that stricter authoring profile.
 
 ## 7. Discovery
 
@@ -147,7 +157,9 @@ extends:
   - ./domain/VOICE.md
 ```
 
-Paths resolve relative to the declaring file and load before it. Implementations MUST detect cycles and SHOULD enforce a depth limit. The reference limit is eight hops.
+Paths resolve relative to the declaring file and load before it. Implementations MUST detect cycles and SHOULD enforce a depth limit. The reference limit is eight `extends` edges from a discovery root; a root with no `extends` has depth zero.
+
+`extends` forms an ordered directed acyclic graph, not only a tree. The reference traversal is depth-first and left-to-right in the declared path order. Each canonical resolved path is applied at most once, at its first encounter. A path already loaded through an earlier branch is not traversed again. Cycles MUST still be detected against the active recursion stack before a previously loaded path is skipped.
 
 The core specification supports local filesystem paths. Core implementations MUST NOT fetch remote `extends` implicitly. An extension MAY support remote sources only with explicit trust policy, immutable pinning, integrity verification, cache behavior, and failure semantics.
 
@@ -157,12 +169,14 @@ The later source is the override.
 
 - Scalars replace earlier values.
 - Objects deep-merge recursively.
-- `null` explicitly clears a value.
+- A mapping value of `null` is a merge operator that deletes the corresponding inherited key. It MUST NOT remain in the resolved contract. Use an empty object or array when that empty value, rather than key absence, is intended.
 - Most arrays replace earlier arrays.
 - The following arrays append unique values: activation include/exclude, authority may/must-not control, allowed languages, preferred/forbidden lexicon, formatting avoid, and speech avoid.
 - `rules`, `tests`, and `examples` merge by string `id`.
 - An ID-based item with `disabled: true` removes the inherited item.
 - Markdown bodies concatenate broad-to-specific. Later body guidance wins when it directly conflicts with earlier guidance.
+
+The append-unique array rules apply while merging filesystem sources. Audience, surface, tone, and profile `overrides` are contextual selectors and use ordinary replacement for arrays. This distinction lets a profile narrow a source-level list, for example from `language.allowed: [en, ru]` to `[en]`.
 
 Implementations MUST document any deviation.
 
@@ -177,17 +191,25 @@ Implementations MUST document any deviation.
 
 `contextual` is RECOMMENDED.
 
+Activation is evaluated in this order: the authority boundary and higher-priority requirements first; `mode: off`; an explicit off-marker; output-category exclusion; then mode-specific inclusion. `explicit` requires explicit API selection or an on-marker. `contextual` applies to the default human-facing categories plus any category named by `include`. `always` does not require an included category but still respects exclusions. An off-marker wins if both on- and off-markers occur.
+
+The active audience, surface, tone, and profile overrides MUST be resolved before this decision. A selector override of `activation.mode`, include/exclude categories, or markers therefore controls the selected context; an implementation MUST NOT decide from the unselected base contract and compile a different selected contract afterward.
+
 Default included categories are chat, explanations, human messages, documents, reports, summaries, UI copy, and spoken dialogue.
 
 Default exclusions are code, patches, diffs, structured data, required JSON/XML/YAML, SQL, tool calls/results, exact quotations, and raw data.
 
 Implementations MAY support explicit markers. Recommended markers are `@voice`/`voice:on` and `@no-voice`/`voice:off`.
 
+After case folding, a category MUST NOT occur in both `include` and `exclude`, and a marker MUST NOT occur in both `on_markers` and `off_markers`. Such overlap is an invalid contract rather than an implicit precedence rule.
+
 ## 11. Structured fields
 
 ### 11.1 `authority`
 
 Declares in-scope and out-of-scope control. L2 contracts SHOULD include it even though runtime enforcement is mandatory regardless of declaration.
+
+`may_control` MUST NOT contain any protected capability listed in Section 3, and the same semantic capability MUST NOT occur in both `may_control` and `must_not_control`. The reference strict validator additionally requires `must_not_control` to cover facts, safety, legal/compliance obligations, permissions, tools, secrets, hidden reasoning, exact quotations, and required output schemas, plus a non-empty `precedence` statement. These declarations are defense-in-depth metadata; the runtime remains responsible for enforcing the Section 3 boundary even when `authority` is absent.
 
 ### 11.2 `identity`
 
@@ -199,7 +221,9 @@ Defines opening, structure, verbosity, length, examples, repetition, and other r
 
 ### 11.4 `language`
 
-Defines default/allowed languages, user-language matching, mixing, and translation behavior. Language codes SHOULD use BCP 47 where practical.
+Defines default/allowed languages, user-language matching, mixing, and translation behavior. Language codes SHOULD use BCP 47 where practical. `match_user: true` selects among allowed languages; it does not expand `language.allowed`.
+
+`language.default` is the normative default-language field. `default_language` is a deprecated `0.1` compatibility alias. When only the alias is present, a compiler MUST treat it as `language.default`; when both are present they MUST be equal, otherwise the contract is invalid. A declared `language.default` MUST occur in `language.allowed` when that list is present.
 
 ### 11.5 `lexicon`
 
@@ -244,6 +268,8 @@ profiles:
 
 Explicit runtime arguments override profile selectors. Audience, surface, and tone variants are merged first; the profile-local `overrides` mapping is merged last because it is the most specific part of the selected profile.
 
+When the `profiles` mapping contains a member named `default` and no explicit profile is supplied, a compiler MUST select that profile automatically. Explicit runtime audience, surface, and tone arguments replace the corresponding selector names from the selected profile. Variant application order is audience, then surface, then tone, followed by profile-local `overrides`. Every selector reference in a profile or test MUST name an existing variant or profile.
+
 ### 11.12 `runtime`
 
 Contains implementation hints such as `max_prompt_chars` or compact-mode preference. Hints MUST NOT weaken safety or authority constraints.
@@ -259,6 +285,8 @@ Rules require a stable `id`. A deterministic regex rule MAY define:
 
 A rule without a pattern is a normative natural-language rule for model-based evaluation.
 
+For a regex rule, `pattern` and `assert` MUST occur together. A core implementation MUST reject syntactically invalid patterns before evaluation. Because the reference Python regex engine has no execution timeout, its supported subset limits a pattern to 2,048 characters and rejects unbounded repetition of a group that itself contains a variable-width repeat or alternation. This intentionally rejects obvious catastrophic-backtracking forms such as `(a+)+` and `(a|aa)+`. Implementations with a bounded-time regex engine MAY safely support a broader subset but MUST document the deviation.
+
 ### 11.14 `tests`
 
 Tests require an `id` and MAY define prompt, inline response, selectors, and assertions. Core deterministic assertions are:
@@ -271,13 +299,15 @@ Tests require an `id` and MAY define prompt, inline response, selectors, and ass
 
 Model-generated response execution is outside the core format; the package includes an OpenAI-compatible runner.
 
+Every test MUST contain an `assertions` mapping and at least one of `prompt` or `response`. Empty or extension-only assertions do not contribute to core L3. IDs in each of `rules`, `tests`, and `examples` MUST be unique within each source and in the resolved contract. Duplicate IDs are invalid rather than silently last-wins. An inherited ID MAY be updated by a later source or removed with `disabled: true` under the merge semantics in Section 9.
+
 ### 11.15 Extensions
 
 Unknown keys are permitted for forward compatibility. Vendor or organization extensions SHOULD use an `x-` prefix.
 
 ## 12. Compilation
 
-A compiler transforms the resolved contract into runtime instructions. A configured prompt character budget MUST be at least 256 characters; JSON contract output MUST remain valid JSON and MUST NOT be text-truncated. It MUST:
+A compiler transforms the resolved contract into runtime instructions. A configured prompt character budget MUST be at least 256 characters; JSON contract output MUST use strict JSON (including rejection of NaN and infinities), remain valid JSON, and MUST NOT be text-truncated. It MUST:
 
 - preserve the authority boundary;
 - identify active selectors when useful;
@@ -286,11 +316,24 @@ A compiler transforms the resolved contract into runtime instructions. A configu
 - provide a deterministic output for the same inputs;
 - disclose truncation when a character budget is applied.
 
+For an ASCII output format, normalization MUST occur before the final character-budget check and truncation because transliteration may expand text. The returned prompt, including its truncation disclosure, MUST NOT exceed the configured budget.
+
+### 12.1 Canonical selected-contract hash
+
+For portable cache keys and provenance, the reference canonical payload is a JSON object with exactly three members:
+
+- `contract`: the fully resolved contract after selector/profile application and deprecated-field normalization;
+- `markdown_bodies`: the ordered non-empty Markdown bodies, with CRLF/CR normalized to LF and surrounding whitespace removed;
+- `active`: `profile`, `audience`, `surface`, and `tone`, using JSON `null` when absent.
+
+The payload MUST exclude filesystem paths, timestamps, compiler version, and other host-specific metadata. Serialize it as UTF-8 strict JSON with lexicographically sorted object keys, no insignificant whitespace, literal non-ASCII characters, and no NaN or infinities. The lowercase hexadecimal SHA-256 of those UTF-8 bytes is the canonical selected-contract hash. A cache key SHOULD additionally include the compiler version and requested output format because equal contract semantics do not guarantee identical rendering across compiler releases.
+
 A compiler MAY emit:
 
 - human-readable prompt Markdown;
 - compact prompt text;
 - JSON;
+- canonical JSON or its SHA-256 fingerprint;
 - ASCII-normalized prompt text;
 - a provider-specific envelope.
 

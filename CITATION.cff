@@ -4,5 +4,8 @@ message: "If you use this draft or reference implementation, cite the version an
 type: software
 version: "0.1.0-draft.1"
 date-released: 2026-08-24
+authors:
+  - family-names: "Nasovich"
+    given-names: "Pavel"
 license: Apache-2.0
 abstract: "A vendor-neutral, version-controlled contract for AI agent communication and interaction behavior."

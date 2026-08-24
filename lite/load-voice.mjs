@@ -1,5 +1,6 @@
 import { existsSync, lstatSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const candidates = ["VOICE.override.md", "VOICE.md", ".voice/VOICE.override.md", ".voice/VOICE.md"];
 const rootMarkers = [".voicemd-root", ".git", ".hg", ".svn"];
@@ -10,11 +11,24 @@ function directory(start) {
   return existsSync(value) && lstatSync(value).isFile() ? dirname(value) : value;
 }
 
+function contains(root, child) {
+  const rel = relative(root, child);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function isFile(path) {
+  return existsSync(path) && lstatSync(path).isFile();
+}
+
+function isNonEmptyFile(path) {
+  return isFile(path) && lstatSync(path).size > 0;
+}
+
 function projectRoot(start) {
   const current = directory(start);
   if (process.env.VOICE_MD_ROOT) {
     const root = resolve(process.env.VOICE_MD_ROOT);
-    if (!existsSync(root) || (current !== root && !current.startsWith(`${root}/`))) {
+    if (!existsSync(root) || !lstatSync(root).isDirectory() || !contains(root, current)) {
       throw new Error("VOICE_MD_ROOT must be a directory containing the start path");
     }
     return root;
@@ -32,7 +46,7 @@ function projectRoot(start) {
     if (rootMarkers.some((name) => existsSync(join(candidate, name)))) return candidate;
   }
   for (const candidate of chain) {
-    if (fallbackRootMarkers.some((name) => existsSync(join(candidate, name)))) return candidate;
+    if (fallbackRootMarkers.some((name) => isFile(join(candidate, name)))) return candidate;
   }
   return current;
 }
@@ -46,18 +60,20 @@ export function loadVoice(start = ".") {
     chain.push(current);
     if (current === root) break;
     const parent = dirname(current);
-    if (parent === current || (current !== root && !current.startsWith(`${root}/`))) break;
+    if (parent === current || !contains(root, current)) break;
     current = parent;
   }
   const files = [];
   for (const base of chain.reverse()) {
     const candidate = candidates
       .map((name) => join(base, name))
-      .find((path) => existsSync(path) && lstatSync(path).isFile());
+      .find((path) => isNonEmptyFile(path));
     if (candidate) files.push(candidate);
   }
   if (files.length === 0) throw new Error("No VOICE.md found");
   return files.map((path) => readFileSync(path, "utf8").trim()).join("\n\n");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) console.log(loadVoice(process.argv[2] ?? "."));
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  console.log(loadVoice(process.argv[2] ?? "."));
+}

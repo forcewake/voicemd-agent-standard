@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from .compiler import _apply_profile
 from .model import ResolvedVoiceContract
@@ -81,11 +80,12 @@ def lint_text(
                 issues.append(
                     LintIssue("formatting.emoji", "error", "Emoji are disabled", match.group(0))
                 )
-        if formatting.get("tables") in {False, "never", "none"}:
-            if re.search(r"^\s*\|.*\|\s*$", text, flags=re.MULTILINE):
-                issues.append(
-                    LintIssue("formatting.tables", "warning", "Markdown tables are disabled")
-                )
+        if formatting.get("tables") in {False, "never", "none"} and re.search(
+            r"^\s*\|.*\|\s*$", text, flags=re.MULTILINE
+        ):
+            issues.append(
+                LintIssue("formatting.tables", "warning", "Markdown tables are disabled")
+            )
 
     response = data.get("response", {})
     if isinstance(response, dict):

@@ -1,4 +1,6 @@
-# Verification record — 2026-08-24
+# Historical verification record — 2026-08-24
+
+> This record applies to the committed `0.1.0a1` artifacts, not to the current remediated source tree. `release/BUILD_INFO.json` marks them `stale`; the hardened release verifier intentionally rejects them until a clean rebuild replaces this record.
 
 - [x] 30 unit and regression tests passed.
 - [x] Root `VOICE.md`, full template, and spoken template passed strict L3 validation.

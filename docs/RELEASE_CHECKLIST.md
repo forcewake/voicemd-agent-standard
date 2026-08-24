@@ -1,6 +1,7 @@
 # Release checklist
 
 - [ ] Update draft/spec/package versions consistently.
+- [ ] Start from a clean, committed Git source revision and record its full hash.
 - [ ] Run `pytest`.
 - [ ] Run strict validation on all structured templates.
 - [ ] Regenerate compiled examples.
@@ -14,4 +15,12 @@
 - [ ] Review schema compatibility and migration notes.
 - [ ] Update changelog.
 - [ ] Create checksums for release artifacts.
+- [ ] Record every artifact and checksum in `release/BUILD_INFO.json`.
+- [ ] Record and verify `source_sha256` for the embedded non-release source snapshot.
+- [ ] Set `artifact_status` to `current` only after the artifacts and source revision match.
+- [ ] Commit the final release tree; the outer ZIP builder rejects tracked or untracked changes.
+- [ ] Build the outer ZIP twice with `scripts/build_release.py` and compare hashes.
+- [ ] Run `scripts/verify_release.py` against the final outer ZIP without `--metadata-only`.
+- [ ] Confirm remote CI ran the full release verifier, package/client jobs, and Docker build.
+- [ ] Confirm the ZIP contains no environment, cache, untracked, symlink, or build-context files.
 - [ ] Tag the exact commit.

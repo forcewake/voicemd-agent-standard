@@ -94,6 +94,8 @@ Recommended production metadata:
 }
 ```
 
+`voicemd compile --format canonical-json` emits the path-independent canonical selected-contract payload. `voicemd compile --format sha256` emits its lowercase SHA-256 fingerprint. Add the compiler version and output format when using the fingerprint as a rendered-prompt cache key.
+
 ## Failure strategy
 
 Applications should choose one of three explicit policies:

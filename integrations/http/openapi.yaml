@@ -11,7 +11,7 @@ paths:
       operationId: health
       responses:
         "200":
-          description: Healthy
+          description: Healthy and active contract is valid
           content:
             application/json:
               schema:
@@ -19,6 +19,9 @@ paths:
                 properties:
                   status: {type: string}
                   service: {type: string}
+                  contract: {type: string, const: valid}
+        "503":
+          description: Active contract is missing or invalid
   /v1/voice/contract:
     get:
       operationId: getResolvedContract
@@ -47,7 +50,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [prompt, json, ascii, nemotron, nemotron-ascii]
+            enum: [prompt, json, canonical-json, sha256, ascii, nemotron, nemotron-ascii]
             default: prompt
         - {name: compact, in: query, schema: {type: boolean, default: false}}
         - {name: max_chars, in: query, schema: {type: integer, minimum: 256}}
@@ -63,6 +66,8 @@ paths:
                   prompt: {type: string}
         "400":
           description: Invalid selector or contract
+        "503":
+          description: Active contract is missing or invalid
   /v1/voice/lint:
     post:
       operationId: lintVoiceText
@@ -98,3 +103,13 @@ paths:
                         severity: {type: string}
                         message: {type: string}
                         evidence: {type: [string, "null"]}
+        "400":
+          description: Invalid JSON request
+        "411":
+          description: Content-Length is required
+        "413":
+          description: Request body exceeds the configured limit
+        "415":
+          description: Content-Type must be application/json
+        "503":
+          description: Active contract is missing or invalid

@@ -3,7 +3,6 @@ voice_spec: "0.1"
 kind: VoiceContract
 name: "VoiceMD technical maintainer"
 version: "1.0.0"
-default_language: en
 activation:
   mode: contextual
   include:
@@ -46,6 +45,7 @@ authority:
     - safety
     - permissions
     - tool selection
+    - access to secrets
     - hidden reasoning
     - exact quotations
     - legal or compliance requirements
@@ -213,6 +213,7 @@ profiles:
       language:
         default: en
         allowed: [en]
+        match_user: false
       speech:
         ascii_only: true
       runtime:

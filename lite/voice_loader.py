@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 CANDIDATES = (
@@ -73,3 +74,20 @@ def load_voice(start: str | Path = ".") -> str:
 
 def should_apply(output_kind: str, *, exact_output: bool = False, enabled: bool = True) -> bool:
     return enabled and not exact_output and output_kind not in MACHINE_OUTPUTS
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) > 1:
+        print("usage: python voice_loader.py [START]", file=sys.stderr)
+        return 2
+    try:
+        print(load_voice(args[0] if args else "."))
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

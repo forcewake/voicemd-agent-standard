@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from copy import deepcopy
-from typing import Any, Iterable
+from hashlib import sha256
+from typing import Any
 
 from .ascii import to_ascii
 from .merge import deep_merge
@@ -11,6 +13,26 @@ from .model import ResolvedVoiceContract
 
 class CompileError(ValueError):
     pass
+
+
+SUPPORTED_OUTPUT_FORMATS = {
+    "prompt",
+    "json",
+    "canonical-json",
+    "sha256",
+    "ascii",
+    "nemotron",
+    "nemotron-ascii",
+}
+
+
+def _json_dumps(value: Any, **kwargs: Any) -> str:
+    try:
+        return json.dumps(value, allow_nan=False, **kwargs)
+    except (TypeError, ValueError) as exc:
+        raise CompileError(
+            f"Contract contains a value that cannot be encoded as strict JSON: {exc}"
+        ) from exc
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -26,7 +48,7 @@ def _sentence(value: Any) -> str:
         return "unspecified"
     if isinstance(value, (str, int, float)):
         return str(value)
-    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return _json_dumps(value, ensure_ascii=False, sort_keys=True)
 
 
 def _bullets(title: str, values: Iterable[Any]) -> list[str]:
@@ -74,20 +96,29 @@ def _apply_profile(
     tone: str | None,
 ) -> tuple[dict[str, Any], str | None, str | None, str | None]:
     selected = deepcopy(data)
+    legacy_language = selected.pop("default_language", None)
+    if legacy_language is not None:
+        language = selected.setdefault("language", {})
+        if isinstance(language, dict) and "default" not in language:
+            language["default"] = legacy_language
+
     profile_overrides: dict[str, Any] = {}
-    if profile:
-        profiles = selected.get("profiles", {})
-        if profile not in profiles:
-            raise CompileError(f"Unknown profile: {profile}")
-        profile_data = profiles[profile]
+    profiles = selected.get("profiles", {})
+    active_profile = profile
+    if active_profile is None and isinstance(profiles, dict) and "default" in profiles:
+        active_profile = "default"
+    if active_profile:
+        if not isinstance(profiles, dict) or active_profile not in profiles:
+            raise CompileError(f"Unknown profile: {active_profile}")
+        profile_data = profiles[active_profile]
         if not isinstance(profile_data, dict):
-            raise CompileError(f"Profile '{profile}' must be a mapping")
+            raise CompileError(f"Profile '{active_profile}' must be a mapping")
         audience = audience or profile_data.get("audience")
         surface = surface or profile_data.get("surface")
         tone = tone or profile_data.get("tone")
         raw_overrides = profile_data.get("overrides", {})
         if not isinstance(raw_overrides, dict):
-            raise CompileError(f"Profile '{profile}' overrides must be a mapping")
+            raise CompileError(f"Profile '{active_profile}' overrides must be a mapping")
         profile_overrides = raw_overrides
 
     # Named variants establish the selected context. Profile-local overrides are
@@ -95,11 +126,31 @@ def _apply_profile(
     for category, name in (("audiences", audience), ("surfaces", surface), ("tones", tone)):
         if name:
             variants = selected.get(category, {})
-            if name not in variants:
+            if not isinstance(variants, dict) or name not in variants:
                 raise CompileError(f"Unknown {category[:-1]}: {name}")
-            selected = deep_merge(selected, variants[name])
-    selected = deep_merge(selected, profile_overrides)
+            selected = deep_merge(selected, variants[name], append_unique_arrays=False)
+    selected = deep_merge(selected, profile_overrides, append_unique_arrays=False)
     return selected, audience, surface, tone
+
+
+def resolve_context(
+    contract: ResolvedVoiceContract,
+    *,
+    profile: str | None = None,
+    audience: str | None = None,
+    surface: str | None = None,
+    tone: str | None = None,
+) -> dict[str, Any]:
+    """Return contract data after applying the selected contextual overrides."""
+
+    selected, _, _, _ = _apply_profile(
+        contract.data,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
+    return selected
 
 
 def _compact_mapping(mapping: Any, prefix: str) -> list[str]:
@@ -117,6 +168,68 @@ def _compact_mapping(mapping: Any, prefix: str) -> list[str]:
     return result
 
 
+def canonical_contract_json(
+    contract: ResolvedVoiceContract,
+    *,
+    profile: str | None = None,
+    audience: str | None = None,
+    surface: str | None = None,
+    tone: str | None = None,
+) -> str:
+    """Serialize selected contract semantics without workspace-specific paths."""
+
+    active_profile = profile
+    profiles = contract.data.get("profiles", {})
+    if active_profile is None and isinstance(profiles, dict) and "default" in profiles:
+        active_profile = "default"
+    selected, audience, surface, tone = _apply_profile(
+        contract.data,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
+    bodies = []
+    for _, body in contract.bodies:
+        normalized = body.replace("\r\n", "\n").replace("\r", "\n").strip()
+        if normalized:
+            bodies.append(normalized)
+    payload = {
+        "active": {
+            "audience": audience,
+            "profile": active_profile,
+            "surface": surface,
+            "tone": tone,
+        },
+        "contract": selected,
+        "markdown_bodies": bodies,
+    }
+    return _json_dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def contract_sha256(
+    contract: ResolvedVoiceContract,
+    *,
+    profile: str | None = None,
+    audience: str | None = None,
+    surface: str | None = None,
+    tone: str | None = None,
+) -> str:
+    canonical = canonical_contract_json(
+        contract,
+        profile=profile,
+        audience=audience,
+        surface=surface,
+        tone=tone,
+    )
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def compile_contract(
     contract: ResolvedVoiceContract,
     *,
@@ -129,6 +242,14 @@ def compile_contract(
     max_chars: int | None = None,
     include_provenance: bool = False,
 ) -> str:
+    if output_format not in SUPPORTED_OUTPUT_FORMATS:
+        raise CompileError(f"Unknown output format: {output_format}")
+
+    active_profile = profile
+    if active_profile is None:
+        profiles = contract.data.get("profiles", {})
+        if isinstance(profiles, dict) and "default" in profiles:
+            active_profile = "default"
     selected, audience, surface, tone = _apply_profile(
         contract.data,
         profile=profile,
@@ -139,6 +260,23 @@ def compile_contract(
 
     if max_chars is not None and max_chars < 256:
         raise CompileError("max_chars must be at least 256")
+
+    if output_format == "canonical-json":
+        return canonical_contract_json(
+            contract,
+            profile=profile,
+            audience=audience,
+            surface=surface,
+            tone=tone,
+        )
+    if output_format == "sha256":
+        return contract_sha256(
+            contract,
+            profile=profile,
+            audience=audience,
+            surface=surface,
+            tone=tone,
+        )
 
     if output_format == "json":
         payload = {
@@ -154,7 +292,8 @@ def compile_contract(
             },
             "sources": [str(path) for path in contract.source_paths()],
         }
-        return json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+        payload["active"]["profile"] = active_profile
+        return _json_dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
 
     if compact:
         lines = [
@@ -184,16 +323,18 @@ def compile_contract(
         lines = [
             "# Active VOICE.md communication contract",
             "",
-            "This contract controls communication behavior only. It never overrides higher-priority "
-            "system/developer instructions, safety policy, permissions, factual requirements, tool "
-            "contracts, exact quotations, or required machine-readable schemas.",
+            (
+                "This contract controls communication behavior only. It never overrides higher-priority "
+                "system/developer instructions, safety policy, permissions, factual requirements, tool "
+                "contracts, exact quotations, or required machine-readable schemas."
+            ),
         ]
-        if any((profile, audience, surface, tone)):
+        if any((active_profile, audience, surface, tone)):
             lines.extend(
                 [
                     "",
                     "## Active context",
-                    f"- profile: {profile or 'default'}",
+                    f"- profile: {active_profile or 'none'}",
                     f"- audience: {audience or 'default'}",
                     f"- surface: {surface or 'default'}",
                     f"- tone: {tone or 'default'}",
@@ -240,13 +381,11 @@ def compile_contract(
             max_chars = runtime["max_prompt_chars"]
     if max_chars is not None and max_chars < 256:
         raise CompileError("runtime.max_prompt_chars must be at least 256")
-    if max_chars is not None and len(result) > max_chars:
-        suffix = "\n[VOICE.md prompt truncated to configured character budget.]"
-        result = result[: max(0, max_chars - len(suffix))].rstrip() + suffix
     if output_format in {"nemotron", "nemotron-ascii", "ascii"}:
         result = to_ascii(result)
         if not result.isascii():
             raise CompileError("ASCII compilation failed to remove all non-ASCII characters")
-    elif output_format != "prompt":
-        raise CompileError(f"Unknown output format: {output_format}")
+    if max_chars is not None and len(result) > max_chars:
+        suffix = "\n[VOICE.md prompt truncated to configured character budget.]"
+        result = result[: max(0, max_chars - len(suffix))].rstrip() + suffix
     return result

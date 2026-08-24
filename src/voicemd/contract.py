@@ -39,11 +39,13 @@ def _load_recursive(
     max_depth: int,
 ) -> list[SourceDocument]:
     path = path.resolve()
-    if len(stack) >= max_depth:
-        raise ContractError(f"Maximum extends depth ({max_depth}) exceeded at {path}")
     if path in stack:
         cycle = " -> ".join(map(str, (*stack, path)))
         raise ContractError(f"VOICE.md extends cycle detected: {cycle}")
+    if path in seen:
+        return []
+    if len(stack) > max_depth:
+        raise ContractError(f"Maximum extends depth ({max_depth} hops) exceeded at {path}")
     if not path.is_file():
         raise ContractError(f"VOICE.md source does not exist: {path}")
 
@@ -81,6 +83,12 @@ def load_contract(
     include_global: bool = True,
     max_extends_depth: int = 8,
 ) -> ResolvedVoiceContract:
+    if (
+        isinstance(max_extends_depth, bool)
+        or not isinstance(max_extends_depth, int)
+        or max_extends_depth < 0
+    ):
+        raise ContractError("max_extends_depth must be a non-negative integer")
     active_paths = paths or discover_paths(
         start=start, explicit=explicit, include_global=include_global
     )

@@ -1,0 +1,11 @@
+# Fail closed: the image only needs Python package sources and package metadata.
+**
+!pyproject.toml
+!README.md
+!LICENSE
+!NOTICE
+!src/
+!src/**
+!integrations/
+!integrations/docker/
+!integrations/docker/Dockerfile

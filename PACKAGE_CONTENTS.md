@@ -27,7 +27,7 @@ The Python package under `src/voicemd/` provides:
 - local `extends` with cycle/depth protection;
 - deterministic deep merge and ID-based rule/test overrides;
 - audience, surface, tone, and profile selection;
-- prompt, compact, JSON, ASCII, and Nemotron compilation;
+- prompt, compact, JSON, canonical JSON/SHA-256, ASCII, and Nemotron compilation;
 - schema and semantic validation;
 - deterministic linting and inline conformance tests;
 - safe managed adapter installation and uninstall ownership tracking;
@@ -35,7 +35,7 @@ The Python package under `src/voicemd/` provides:
 
 The CLI commands are `init`, `discover`, `validate`, `compile`, `lint`, `test`, `install`, `uninstall`, `doctor`, and `serve`.
 
-A prebuilt pure-Python wheel is included under `release/`. Source installation remains available through `pyproject.toml`.
+A prebuilt pure-Python wheel is included under `release/`. It is publishable only when `release/BUILD_INFO.json` says `artifact_status: current` and the release verifier passes; development checkouts may deliberately mark old artifacts `stale`. Source installation remains available through `pyproject.toml`.
 
 ## Harness adapters
 
@@ -62,7 +62,7 @@ The canonical on-demand skill is under `.agents/skills/voice-contract/SKILL.md`;
 
 - Python direct API and middleware;
 - HTTP/OpenAPI sidecar examples;
-- TypeScript and .NET clients;
+- buildable TypeScript and .NET clients;
 - OpenAI-compatible chat-completions injection;
 - Hugging Face Transformers chat-template integration;
 - vLLM, Ollama, and llama.cpp recipes;
@@ -72,16 +72,16 @@ The canonical on-demand skill is under `.agents/skills/voice-contract/SKILL.md`;
 
 ## Evaluation and QA
 
-- `evals/`: prompts, rubric, judge prompt, OpenAI-compatible runner, deterministic scorer.
+- `evals/`: prompts, rubric, judge prompt, Azure/OpenAI-compatible runner, deterministic scorer, and model-judge runner.
 - `tests/`: unit and regression suite covering discovery, resolution, merge, compilation, profile precedence, prompt budgets, linting, evaluation, and safe adapter lifecycle.
 - `.github/workflows/ci.yml`: CI workflow.
-- `scripts/build_release.py`: reproducible source ZIP builder.
+- `scripts/build_release.py`: hermetic Git-tracked deterministic source ZIP builder.
 - `scripts/verify_release.py`: release integrity and smoke verifier.
 - `release/SHA256SUMS`: artifact checksums.
 
 ## Dependency-free path
 
-`lite/` provides minimal Python, Node.js, and shell loaders. It does not implement the full schema/compiler; it exists for environments where reading a Markdown contract and injecting it into a prompt is sufficient.
+`lite/` provides minimal Python and Node.js loaders plus a shell wrapper around the Python loader. They have no package dependencies, but require their named language runtime. They do not implement the full schema/compiler; this path exists where reading Markdown and injecting it into a prompt is sufficient.
 
 ## Documentation map
 

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [
-  {name = "VoiceMD contributors"}
+  {name = "Pavel Nasovich"}
 ]
 keywords = ["agents", "voice", "prompt", "ai", "llm", "agent-skills"]
 classifiers = [
@@ -29,8 +29,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "build>=1.2"]
-mcp = ["mcp>=1.0"]
+dev = [
+  "pytest>=8,<9",
+  "build>=1.2,<2",
+  "coverage[toml]>=7.10,<8",
+  "ruff>=0.16,<1",
+]
+mcp = ["mcp>=1.29,<2"]
 nemotron = ["websockets>=13"]
 
 [project.scripts]
@@ -52,3 +57,11 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.coverage.run]
+branch = true
+source = ["voicemd"]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true

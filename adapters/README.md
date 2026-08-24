@@ -10,8 +10,21 @@ voicemd install --target all --mode auto
 
 Modes:
 
-- `auto`: small bootstrap plus on-demand skill/rule;
-- `always`: contract is requested/imported for every task but exclusions still apply;
-- `explicit`: install discoverable skills/files without changing instruction bootstraps.
+- `auto`: small bootstrap plus a model-invocable skill;
+- `always`: contract is requested/imported for every task, while machine-output exclusions still apply;
+- `explicit`: no instruction bootstrap; invoke the installed skill with the harness-native command.
 
-The installer uses managed markers and refuses to overwrite unmanaged generated files.
+In explicit mode use `$voice-contract` in Codex and `/voice-contract` in Claude Code,
+GitHub Copilot CLI, or Cursor. `@voice` and `voice:on` remain portable request markers,
+but cannot load a skill that a harness has hidden from model invocation.
+
+Several targets share `.agents/skills/voice-contract`. They may mix `auto` and
+`always`, because those modes use the same skill content. `explicit` cannot share
+that file with either implicit mode. The `universal`, `codex`, and `opencode`
+targets also share one `AGENTS.md` block and must use the same `auto` or `always`
+mode. The installer rejects conflicts during preflight without changing files.
+
+The installer rejects symlinked artifact paths, applies a preflighted transaction,
+and records artifact SHA-256 ownership in `.voicemd/install-state.json`. Reinstall
+does not overwrite a modified managed artifact. Uninstall preserves modified files
+or blocks and reports `modified-retained`.

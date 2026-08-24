@@ -11,7 +11,7 @@ from .compiler import compile_contract
 from .contract import ContractError, load_contract
 from .discovery import DiscoveryError, discover_paths, find_project_root
 from .evaluator import load_responses, run_cases
-from .installer import InstallError, install, uninstall
+from .installer import InstallError, adapter_health, install, uninstall
 from .linter import lint_text
 from .server import serve
 from .validator import validate_contract
@@ -141,6 +141,11 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 def cmd_test(args: argparse.Namespace) -> int:
     contract = _load(args)
+    validation = validate_contract(contract, strict=False)
+    if not validation.ok:
+        for error in validation.errors:
+            print(f"error: {error}", file=sys.stderr)
+        return 2
     responses = load_responses(Path(args.responses)) if args.responses else {}
     results = run_cases(contract, responses=responses)
     if not results:
@@ -150,6 +155,8 @@ def cmd_test(args: argparse.Namespace) -> int:
     for result in results:
         if result.skipped:
             print(f"SKIP {result.case_id}: no response supplied")
+            if not args.allow_skips:
+                failures += 1
         elif result.passed:
             print(f"PASS {result.case_id}")
         else:
@@ -197,19 +204,21 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         for warning in validation.warnings:
             print(f"  warning: {warning}")
 
-    checks = {
-        "universal skill": root / ".agents/skills/voice-contract/SKILL.md",
-        "Codex/OpenCode bootstrap": root / "AGENTS.md",
-        "Claude skill": root / ".claude/skills/voice-contract/SKILL.md",
-        "Gemini bootstrap": root / "GEMINI.md",
-        "Cursor rule": root / ".cursor/rules/voice-contract.mdc",
-        "Copilot instructions": root / ".github/copilot-instructions.md",
-        "Cline skill": root / ".cline/skills/voice-contract/SKILL.md",
-        "Windsurf rule": root / ".windsurf/rules/voice-contract.md",
-        "Aider config": root / ".aider.voice.yml",
-    }
-    for label, path in checks.items():
-        print(f"adapter: {'present' if path.exists() else 'absent'}: {label}: {path}")
+    adapter_report = adapter_health(root)
+    print(
+        "adapters: "
+        f"{'PASS' if adapter_report['ok'] else 'FAIL'} "
+        f"(state={adapter_report['state']}, version={adapter_report['version']})"
+    )
+    for target, settings in sorted(adapter_report["targets"].items()):
+        print(f"  target: {target}: mode={settings.get('mode')}")
+    for artifact in adapter_report["artifacts"]:
+        if artifact["status"] not in {"ok", "absent", "unmanaged"}:
+            print(f"  artifact: {artifact['status']}: {artifact['path']}")
+    for issue in adapter_report["issues"]:
+        print(f"  issue: {issue}")
+    if not adapter_report["ok"]:
+        failed = True
     return 1 if failed else 0
 
 
@@ -222,6 +231,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
         path=args.path if args.path else None,
         include_global=not args.no_global,
         quiet=args.quiet,
+        max_body_bytes=args.max_body_bytes,
+        max_workers=args.max_workers,
+        request_timeout_seconds=args.request_timeout_seconds,
     )
     return 0
 
@@ -258,7 +270,15 @@ def build_parser() -> argparse.ArgumentParser:
     compile_parser.add_argument("--tone")
     compile_parser.add_argument(
         "--format",
-        choices=("prompt", "json", "ascii", "nemotron", "nemotron-ascii"),
+        choices=(
+            "prompt",
+            "json",
+            "canonical-json",
+            "sha256",
+            "ascii",
+            "nemotron",
+            "nemotron-ascii",
+        ),
         default="prompt",
     )
     compile_parser.add_argument("--compact", action="store_true")
@@ -281,6 +301,11 @@ def build_parser() -> argparse.ArgumentParser:
     test_parser = subparsers.add_parser("test", help="Run deterministic contract test cases.")
     _add_contract_args(test_parser)
     test_parser.add_argument("--responses", help="JSONL with {id, response} model outputs.")
+    test_parser.add_argument(
+        "--allow-skips",
+        action="store_true",
+        help="Return success when a test has no inline or supplied response.",
+    )
     test_parser.set_defaults(func=cmd_test)
 
     install_parser = subparsers.add_parser("install", help="Install harness adapters safely.")
@@ -310,6 +335,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8765)
     serve_parser.add_argument("--quiet", action="store_true")
+    serve_parser.add_argument("--max-body-bytes", type=int, default=262_144)
+    serve_parser.add_argument("--max-workers", type=int, default=16)
+    serve_parser.add_argument("--request-timeout-seconds", type=float, default=30.0)
     serve_parser.set_defaults(func=cmd_serve)
     return parser
 
@@ -319,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (ContractError, DiscoveryError, InstallError, ValueError) as exc:
+    except (ContractError, DiscoveryError, InstallError, TypeError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:

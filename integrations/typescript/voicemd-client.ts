@@ -3,7 +3,14 @@ export type VoiceSelector = {
   audience?: string;
   surface?: string;
   tone?: string;
-  format?: "prompt" | "json" | "ascii" | "nemotron" | "nemotron-ascii";
+  format?:
+    | "prompt"
+    | "json"
+    | "canonical-json"
+    | "sha256"
+    | "ascii"
+    | "nemotron"
+    | "nemotron-ascii";
   compact?: boolean;
   maxChars?: number;
 };

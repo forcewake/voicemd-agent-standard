@@ -8,3 +8,5 @@ curl http://127.0.0.1:8765/health
 ```
 
 The Compose example publishes only on loopback. The reference server has no authentication; do not expose it publicly without a hardened gateway and approved source registry.
+
+The root `.dockerignore` is an allowlist. Only Python package sources and the metadata needed by `pip` enter the Docker build context; repository contracts, release artifacts, local environment files, and Git metadata are excluded.

@@ -24,6 +24,8 @@ bash lite/load-voice.sh
 
 Установка из готового wheel:
 
+Перед установкой убедитесь, что `release/BUILD_INFO.json` содержит `"artifact_status": "current"`. Если checkout находится в процессе разработки и artifacts помечены `stale`, используйте editable install или пересоберите release.
+
 ```bash
 python -m pip install release/voicemd-0.1.0a1-py3-none-any.whl
 ```
@@ -44,6 +46,8 @@ voicemd doctor
 ```
 
 `--mode auto` ставит небольшие managed bootstraps и Agent Skill. Полный contract активируется для human-facing output, а не для code patches, structured data и tool traffic.
+
+`--mode explicit` использует native explicit-only metadata там, где harness это поддерживает. Запуск: `$voice-contract` в Codex и `/voice-contract` в Claude Code, Copilot CLI или Cursor. Маркер `@voice` не может сам загрузить skill, скрытый native invocation policy. Aider требует явного запуска `aider --config .aider.voice.yml`.
 
 ### 3. Любое приложение или orchestration framework
 
@@ -97,6 +101,7 @@ voicemd compile \
 voicemd discover
 voicemd validate --strict
 voicemd compile --surface chat --audience engineer
+voicemd compile --surface chat --audience engineer --format sha256
 voicemd lint --file generated-answer.md
 voicemd test
 ```

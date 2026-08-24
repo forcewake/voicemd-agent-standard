@@ -88,4 +88,17 @@ VOICE.md must not contain API keys, credentials, private customer data, or hidde
 
 ## Adapter ownership and uninstall safety
 
-The installer records harness ownership in `.voicemd/install-state.json`. Shared files are retained while another installed harness still depends on them. Generated files carry an ownership marker; uninstall removes only that file, never an unmarked replacement or unrelated files placed beside it. Managed blocks in existing instruction files are removed by paired markers.
+The installer records target ownership and SHA-256 hashes in
+`.voicemd/install-state.json`. Shared files are retained while another installed
+harness still depends on them. A marker identifies the artifact type; the recorded
+hash proves which exact generated file or managed block VoiceMD owns. Reinstall
+refuses to overwrite modified owned content. Uninstall preserves modified content
+as `modified-retained` and relinquishes ownership.
+
+Installer paths and every existing parent below the resolved root must not be
+symlinks. All artifacts are preflighted before mutation. Writes use same-directory
+temporary files plus atomic replacement, and a failed multi-file transaction
+restores prior bytes and removes newly created files. These checks prevent the
+known file- and directory-symlink escapes and ordinary partial installs; they are
+not a substitute for excluding concurrent hostile filesystem mutation by another
+process.

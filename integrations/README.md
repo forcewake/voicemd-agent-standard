@@ -17,3 +17,16 @@
 | `kubernetes/` | sidecar deployment example |
 
 The core contract is provider-neutral. These adapters deliver a compiled contract; they do not change the authority model.
+
+The TypeScript example includes a package manifest, lockfile, and strict compiler configuration:
+
+```bash
+npm --prefix integrations/typescript ci
+npm --prefix integrations/typescript run check
+```
+
+The .NET example is a buildable .NET 8 project:
+
+```bash
+dotnet build integrations/dotnet/VoiceMd.Example.csproj
+```

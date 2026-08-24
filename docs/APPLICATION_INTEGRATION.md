@@ -21,10 +21,25 @@ Some APIs distinguish system and developer roles. Put operational authority, saf
 Use application metadata to determine whether voice applies:
 
 ```python
-MACHINE_OUTPUTS = {"json", "tool_call", "sql", "patch", "exact_quote"}
+from voicemd import decide_activation, load_voice
 
-if request.output_kind not in MACHINE_OUTPUTS:
+contract = load_voice(path="VOICE.md")
+decision = decide_activation(
+    contract,
+    request.output_kind,
+    exact_output=request.exact_output,
+    enabled=request.voice_enabled,
+    explicit=request.voice_explicit,
+    marker_text=request.trusted_voice_marker,
+    profile=request.voice_profile,
+    audience=request.audience,
+    surface=request.surface,
+    tone=request.tone,
+)
+
+if decision.apply:
     voice_prompt = compile_voice(
+        contract,
         profile=request.voice_profile,
         audience=request.audience,
         surface=request.surface,
@@ -32,6 +47,8 @@ if request.output_kind not in MACHINE_OUTPUTS:
 else:
     voice_prompt = None
 ```
+
+The reference decision treats `code`, `patch`, `diff`, `json`, `xml`, `yaml`, `sql`, `tool_call`, `tool_result`, `structured_data`, `exact_quote`, and `raw_data` as machine-facing. Exclusions and exact-output requirements win even when an explicit on marker is present.
 
 ## Python API
 
@@ -55,7 +72,8 @@ issues = lint_voice_text(
 Use the sidecar when the application is not written in Python or when one central service owns contract resolution.
 
 ```bash
-voicemd serve --host 127.0.0.1 --port 8765 --path /contracts/VOICE.md
+voicemd serve --host 127.0.0.1 --port 8765 --path /contracts/VOICE.md \
+  --max-workers 16 --max-body-bytes 262144 --request-timeout-seconds 30
 ```
 
 The OpenAPI document is `integrations/http/openapi.yaml`.
@@ -72,6 +90,8 @@ Production hardening requires:
 - last-known-good or fail-closed behavior.
 
 The reference sidecar is deliberately small and local-first; it is not an internet-facing production gateway.
+
+It validates the active contract before binding, revalidates it through `/health`, bounds request-body size and concurrent workers, rejects excess connections, times out slow clients, and returns generic errors. Authentication, TLS, distributed rate limiting, and multi-tenant policy remain deployment responsibilities.
 
 ## Multi-tenant applications
 

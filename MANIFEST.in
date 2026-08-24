@@ -1,6 +1,6 @@
 include LICENSE NOTICE README.md START_HERE_RU.md PACKAGE_CONTENTS.md SPECIFICATION.md
 include CHANGELOG.md ROADMAP.md GOVERNANCE.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md
-include CITATION.cff manifest.json Makefile pyproject.toml .voicemd-root
+include CITATION.cff manifest.json Makefile pyproject.toml .voicemd-root .dockerignore
 include VOICE.md AGENTS.md CLAUDE.md GEMINI.md .aider.voice.yml
 recursive-include schema *
 recursive-include templates *
@@ -25,4 +25,11 @@ prune release
 prune build
 prune dist
 prune .pytest_cache
-global-exclude __pycache__ *.py[cod] *.pyo *.egg-info
+prune .ruff_cache
+prune .tox
+prune .nox
+prune htmlcov
+prune integrations/typescript/node_modules
+prune integrations/dotnet/bin
+prune integrations/dotnet/obj
+global-exclude __pycache__ *.py[cod] *.pyo *.egg-info .coverage .DS_Store .env .env.*

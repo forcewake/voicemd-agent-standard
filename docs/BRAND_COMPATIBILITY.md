@@ -38,7 +38,30 @@ VoiceMD adds or formalizes:
 
 ## Migration approach
 
-Do not rewrite an existing brand file immediately. Compose it:
+Plain-Markdown brand files can be composed directly because their body is valid L0 guidance. Structured files from another `VOICE.md` convention are not automatically schema-compatible. Inspect and map their fields before using `extends`.
+
+For example, some prior-art formats represent `audiences` and `surfaces` as arrays. VoiceMD defines them as named mappings. Directly extending such a structured file will fail resolved-contract validation; unknown properties are preserved, but a known property with an incompatible type is not an extension.
+
+Map the source explicitly:
+
+```yaml
+voice_spec: "0.1"
+kind: VoiceContract
+name: "Mapped brand voice plus agent behavior"
+x-brand-source: ./brand/VOICE.md
+identity:
+  traits: [precise, pragmatic]
+audiences:
+  customer:
+    response:
+      structure: Explain the decision before implementation detail.
+surfaces:
+  product_copy:
+    response:
+      max_words: 35
+```
+
+After mapping, a VoiceMD-compatible base can be composed normally:
 
 ```yaml
 extends:
@@ -55,7 +78,7 @@ interaction:
   disagreement: Correct false premises without imitating hostility.
 ```
 
-If the existing frontmatter uses fields not defined by VoiceMD, they remain extension data because the schema permits unknown properties. The reference compiler only renders known core sections plus the Markdown body; custom fields require a plugin or explicit prose.
+If compatible frontmatter uses fields not defined by VoiceMD, they remain extension data because the schema permits unknown properties. The reference compiler only renders known core sections plus the Markdown body; custom fields require a plugin or explicit prose.
 
 ## Namespace collision
 

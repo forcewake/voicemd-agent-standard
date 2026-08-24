@@ -13,4 +13,4 @@ python server.py
 
 MCP makes the contract available to any compatible harness, but tool availability does not mean the voice contract can grant permissions. The host must still enforce the communication-only authority boundary.
 
-The MCP Python API can evolve; pin the `mcp` package and test this adapter before deployment.
+The `mcp` extra is constrained to the tested 1.x FastMCP API (`mcp>=1.29,<2`). MCP 2.x removed the import path used by this adapter; upgrade the adapter and dependency bound together.

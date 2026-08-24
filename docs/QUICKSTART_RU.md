@@ -33,12 +33,16 @@ voicemd doctor
 
 Либо из готового wheel внутри release pack:
 
+Сначала проверьте, что в `release/BUILD_INFO.json` указано `"artifact_status": "current"`. Wheel со статусом `stale` нельзя считать сборкой текущего source tree.
+
 ```bash
 python -m pip install release/voicemd-0.1.0a1-py3-none-any.whl
 voicemd doctor
 ```
 
 `--mode auto` ставит маленький bootstrap и Agent Skill. Полный `VOICE.md` должен подтягиваться для человеческого текста, а не для каждой операции агента.
+
+В `--mode explicit` используйте `$voice-contract` в Codex и `/voice-contract` в Claude Code, Copilot CLI или Cursor. Текстовый `@voice` работает только после загрузки contract и не обходит native explicit-only policy. Для Aider явный opt-in — `aider --config .aider.voice.yml`.
 
 ## Основные команды
 

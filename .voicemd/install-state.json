@@ -1,4 +1,90 @@
 {
+  "artifacts": {
+    ".agents/skills/voice-contract/SKILL.md": {
+      "kind": "generated",
+      "owners": [
+        "codex",
+        "copilot",
+        "gemini",
+        "opencode",
+        "universal",
+        "windsurf"
+      ],
+      "sha256": "1fb105df87605a6041d14f3b3683bad35d06e911d5dd070386fdcae1f4e5b408"
+    },
+    ".aider.voice.yml": {
+      "kind": "generated",
+      "owners": [
+        "aider"
+      ],
+      "sha256": "3b5f96eacac181b6d9057598624f10c2adf7ad495b31600b854d2345e51a1600"
+    },
+    ".claude/skills/voice-contract/SKILL.md": {
+      "kind": "generated",
+      "owners": [
+        "claude"
+      ],
+      "sha256": "1fb105df87605a6041d14f3b3683bad35d06e911d5dd070386fdcae1f4e5b408"
+    },
+    ".cline/skills/voice-contract/SKILL.md": {
+      "kind": "generated",
+      "owners": [
+        "cline"
+      ],
+      "sha256": "1fb105df87605a6041d14f3b3683bad35d06e911d5dd070386fdcae1f4e5b408"
+    },
+    ".clinerules/voice-contract.md": {
+      "kind": "generated",
+      "owners": [
+        "cline"
+      ],
+      "sha256": "64c4b4e40b3638a4f4916163be307f6f07488c984da3e1f03e0efcfa2fcada50"
+    },
+    ".cursor/skills/voice-contract/SKILL.md": {
+      "kind": "generated",
+      "owners": [
+        "cursor"
+      ],
+      "sha256": "1fb105df87605a6041d14f3b3683bad35d06e911d5dd070386fdcae1f4e5b408"
+    },
+    ".github/copilot-instructions.md": {
+      "kind": "managed_block",
+      "owners": [
+        "copilot"
+      ],
+      "sha256": "e186719c7f6dba00c12391d672c52049f799e742652ac02bce81fc78ee340f02"
+    },
+    ".windsurf/rules/voice-contract.md": {
+      "kind": "generated",
+      "owners": [
+        "windsurf"
+      ],
+      "sha256": "64c4b4e40b3638a4f4916163be307f6f07488c984da3e1f03e0efcfa2fcada50"
+    },
+    "AGENTS.md": {
+      "kind": "managed_block",
+      "owners": [
+        "codex",
+        "opencode",
+        "universal"
+      ],
+      "sha256": "e186719c7f6dba00c12391d672c52049f799e742652ac02bce81fc78ee340f02"
+    },
+    "CLAUDE.md": {
+      "kind": "managed_block",
+      "owners": [
+        "claude"
+      ],
+      "sha256": "e186719c7f6dba00c12391d672c52049f799e742652ac02bce81fc78ee340f02"
+    },
+    "GEMINI.md": {
+      "kind": "managed_block",
+      "owners": [
+        "gemini"
+      ],
+      "sha256": "e186719c7f6dba00c12391d672c52049f799e742652ac02bce81fc78ee340f02"
+    }
+  },
   "managed_by": "VoiceMD",
   "targets": {
     "aider": {
@@ -32,5 +118,5 @@
       "mode": "auto"
     }
   },
-  "version": 1
+  "version": 2
 }

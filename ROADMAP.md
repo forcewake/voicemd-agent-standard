@@ -4,8 +4,8 @@
 
 - Collect at least ten independent real-world contracts across software, enterprise support, consumer assistants, and voice agents.
 - Validate merge and profile semantics against multiple implementations.
-- Add a conformance corpus for activation conflicts, exact output, translation, and tool-result handling.
-- Define canonical JSON serialization and contract hashing.
+- Validate the bundled activation, exact-output, translation, and tool-result corpus across independent model/harness implementations.
+- Validate canonical selected-contract hashing against a second implementation.
 - Add signed remote bundle design without enabling implicit remote fetches.
 - Improve language-aware linting beyond literal phrases and regex.
 

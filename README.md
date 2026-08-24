@@ -58,6 +58,8 @@ voicemd doctor
 
 `--mode auto` installs a small Agent Skill or native rule. The harness sees only the skill description by default; it loads the full communication contract when the output is human-facing. This avoids spending context on voice rules while editing code, producing JSON, or calling tools.
 
+`--mode explicit` installs an explicit-only skill where the harness supports one. Invoke `$voice-contract` in Codex and `/voice-contract` in Claude Code, GitHub Copilot CLI, or Cursor. Portable `@voice` text markers affect an already available contract; they cannot load a skill hidden by native invocation policy. Aider requires an explicit `aider --config .aider.voice.yml` session and cannot provide the same mode semantics.
+
 Supported adapter pack:
 
 - OpenAI Codex;
@@ -81,6 +83,7 @@ Compile the active contract into a runtime prompt:
 voicemd compile --profile executive_brief
 voicemd compile --profile voicechat --compact --max-chars 5000
 voicemd compile --profile nemotron_voicechat --format nemotron-ascii
+voicemd compile --profile executive_brief --format sha256
 ```
 
 Or run the provider-neutral sidecar:
@@ -212,9 +215,9 @@ Voice is subordinate to correctness and authority. The normative precedence mode
 ## Conformance levels
 
 - **L0 Plain:** readable Markdown with no required metadata.
-- **L1 Core:** valid frontmatter with identity and basic response rules.
+- **L1 Core:** valid structured frontmatter plus concrete communication guidance.
 - **L2 Contextual:** activation, authority, epistemics, interaction, audience/surface/tone profiles, or speech behavior.
-- **L3 Testable:** deterministic rules and/or executable test cases.
+- **L3 Testable:** a non-vacuous deterministic rule or inline executable test case. A skipped external-response case does not establish core L3.
 
 Use `voicemd validate` to report the active level.
 
@@ -246,7 +249,7 @@ For NemotronLabs VoiceChat, compile an English spoken profile with `--format nem
 voicemd init       create simple, full, or spoken templates
 voicemd discover   show active files in precedence order
 voicemd validate   schema and semantic validation
-voicemd compile    render prompt, JSON, compact, or ASCII output
+voicemd compile    render prompt, JSON, canonical hash, compact, or ASCII output
 voicemd lint       deterministic output checks
 voicemd test       run inline contract test cases
 voicemd install    add managed harness adapters
@@ -270,14 +273,14 @@ templates/                 simple, full, and spoken starters
 evals/                     deterministic and model-based evaluation pack
 tests/                     reference implementation tests
 docs/                      architecture, security, compatibility, ADRs
-lite/                      dependency-free path
+lite/                      no-package-dependency raw loaders (shell uses Python)
 ```
 
 ## Security properties
 
 - Communication rules cannot authorize tools or actions.
 - The compiler rejects remote `extends` by default.
-- Harness installers use managed markers and refuse to overwrite unmanaged generated files.
+- Harness installers reject symlink escapes, preflight multi-file changes, record ownership hashes, and preserve modified managed content.
 - The HTTP sidecar binds to `127.0.0.1` by default and does not provide authentication or remote-contract fetching.
 - A `VOICE.md` from an untrusted upload is prompt input and must not be treated as trusted project configuration.
 - Generated prompts should be logged by hash/version, not silently changed in production.
