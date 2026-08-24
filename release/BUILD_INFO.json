@@ -3,32 +3,32 @@
   "package_name": "voicemd",
   "specification_version": "0.1.0-draft.2",
   "package_version": "0.1.0a3",
-  "artifact_status": "stale",
-  "source_revision": "6f58f31bcb5aac7ffe7730d7af9d576000dff182",
-  "release_revision": "6f58f31bcb5aac7ffe7730d7af9d576000dff182",
-  "source_sha256": "af83cc5e5d96e00a719478f460c34962b6df076fe186afb7c3f0605280d16f72",
+  "artifact_status": "current",
+  "source_revision": "35d0f9325c369a7a982d24a3cb63ceb25e13cb27",
+  "release_revision": "35d0f9325c369a7a982d24a3cb63ceb25e13cb27",
+  "source_sha256": "0adcae38543b649aeb8d13961b8e73aba25d75341cb466b1ccaaa2a26f0c1c7c",
   "built_at": "2026-08-25",
   "python": "3.14.5",
   "tests_passed": 355,
   "artifacts": {
     "voicemd-0.1.0a3-py3-none-any.whl": {
-      "sha256": "c27e41c7152c0b27af0d9725b830b19aad813e6a9f56d400ecbaa9a5de43fb45"
+      "sha256": "aeed86c584de74355c540d621133cd8da755d777f6bac983672d82ce7a1794e1"
     },
     "voicemd-0.1.0a3.tar.gz": {
-      "sha256": "da5ca339b2cf179da6b01209a3412ffb3b3502bb9c150751abd9df4c64153eca"
+      "sha256": "31a927f97770484ec8a12552892c7a5244bbd2d3b1f5a7e0b707861aa4d3b7e2"
     }
   },
   "release_metadata": {
     "PROVENANCE.intoto.jsonl": {
-      "sha256": "33e1a8c7c704eb71f6a9ac56e73a302db5df9ff02bfc16cf17cc41f0193f6dfe"
+      "sha256": "d4055334caa4fae60ef89e0dc7993dec99caed49055f88f47ab17bdbd1185d6e"
     },
     "SBOM.spdx.json": {
-      "sha256": "f200f0cfe61c41f6c57e607577a4c48b016aab5c4b454945712556b13fa65958"
+      "sha256": "26f501e38cef5539a4be3c183884c05f5e5341d7e56e70c0a8ce2f074085fec7"
     }
   },
   "verification": [
     "strict L3 validation and inline cases for the root, full, spoken, and Azure demonstration contracts",
-    "355 unit and regression tests plus clean wheel and sdist runtime checks",
+    "355 unit and regression tests plus Python 3.10 compatibility and clean wheel and sdist runtime checks",
     "79 percent branch-aware coverage",
     "byte-identical wheel and normalized sdist across two pinned builds",
     "Twine metadata, exact distribution inventory, and wheel RECORD verification",
@@ -38,6 +38,7 @@
     "TypeScript strict build, zero npm audit findings, and .NET 8 build with zero warnings",
     "sanitized checksum-bound Azure OpenAI Voice proof bundles with no endpoint or secret fields",
     "closed GitHub Pages inventory with a standard-first landing page and separate Azure proof page",
+    "immutable GitHub Actions pins with Node 24 direct and composite action closure",
     "Python, Node.js, and shell lite-loader equivalence",
     "Nemotron ASCII compilation and 5000-character authority-preserving budget"
   ]
