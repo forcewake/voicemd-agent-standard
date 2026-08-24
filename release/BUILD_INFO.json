@@ -4,36 +4,36 @@
   "specification_version": "0.1.0-draft.2",
   "package_version": "0.1.0a3",
   "artifact_status": "current",
-  "source_revision": "83a4c11fc47bd145c115f3db3f7701155848ecbc",
-  "release_revision": "83a4c11fc47bd145c115f3db3f7701155848ecbc",
-  "source_sha256": "dcbde85eda8c1f9f5b9f268232cbd859013bf4d19278efb880bb3d61eda17db6",
+  "source_revision": "a0102e17d1c97898b00847df2f64a9e5a51ad07b",
+  "release_revision": "a0102e17d1c97898b00847df2f64a9e5a51ad07b",
+  "source_sha256": "9fca285a710ea993b9d423da6ecc72850dd04713b2728df5010f3490ed63f78a",
   "built_at": "2026-08-25",
   "python": "3.14.5",
-  "tests_passed": 355,
+  "tests_passed": 358,
   "artifacts": {
     "voicemd-0.1.0a3-py3-none-any.whl": {
-      "sha256": "d7112cfbca3a911102f3645104e670d3bff6436dc414237b52f9b03b92b1de34"
+      "sha256": "f8e11d981f14a7314d697c3688c249ceb3167a5728683fd9ad950dbacc290d31"
     },
     "voicemd-0.1.0a3.tar.gz": {
-      "sha256": "fe543ef82f5d8a916644a60683625734a04f5504763ebfb2e09756126d3610bf"
+      "sha256": "6b5e963c4008746a38adc53940e496793e8794912c889a4d9544bed00240eed4"
     }
   },
   "release_metadata": {
     "PROVENANCE.intoto.jsonl": {
-      "sha256": "717247ef7f48a3cf5bc6670883f82c9d3cc1ba1cf9ff4e422a9ea3351408e61e"
+      "sha256": "a80fc38fa9a56e6fb324254e609e47a90420a698b5bd8d8cd21311a59ef3c111"
     },
     "SBOM.spdx.json": {
-      "sha256": "bc8e67e2c05fcb7b48d8d8b90fe6655d020cda17972baf1f61cb0724a640b752"
+      "sha256": "e1134718879ba2f19846cd9dac4a0a457dc83b8e5a2d37a09298e40df1bbc374"
     }
   },
   "verification": [
     "strict L3 validation and inline cases for the root, full, spoken, and Azure demonstration contracts",
-    "355 unit and regression tests plus Python 3.10 compatibility and clean wheel and sdist runtime checks",
+    "358 unit and regression tests plus Python 3.10 compatibility and clean wheel and sdist runtime checks",
     "79 percent branch-aware coverage",
     "byte-identical wheel and normalized sdist across two pinned builds",
     "Twine metadata, exact distribution inventory, and wheel RECORD verification",
     "SPDX 2.3 SBOM and unsigned SLSA provenance verification",
-    "closed and canonical outer ZIP inventory, boundary, member-type, and binary asset checks",
+    "closed and canonical outer ZIP inventory, boundary, member-type, binary asset, and cross-platform checkout checks",
     "57 of 57 independent TypeScript core conformance vectors",
     "TypeScript strict build, zero npm audit findings, and .NET 8 build with zero warnings",
     "sanitized checksum-bound Azure OpenAI Voice proof bundles with no endpoint or secret fields",

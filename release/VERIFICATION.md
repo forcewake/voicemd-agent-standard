@@ -1,8 +1,8 @@
 # Verification record — 2026-08-25
 
-This record applies to VoiceMD `0.1.0a3`, built from source revision `83a4c11fc47bd145c115f3db3f7701155848ecbc`. The embedded provenance is deterministic and unsigned.
+This record applies to VoiceMD `0.1.0a3`, built from source revision `a0102e17d1c97898b00847df2f64a9e5a51ad07b`. The embedded provenance is deterministic and unsigned.
 
-- [x] 355 unit and regression tests passed; source tests ran on Python 3.13.11, targeted compatibility tests ran on isolated Python 3.10.19, and clean wheel/sdist runtime checks ran on Python 3.14.5.
+- [x] 358 unit and regression tests passed on Python 3.14.5; the isolated Python 3.10.19 suite completed with 357 passed and one platform skip, and the unpacked sdist suite completed with the same result on Python 3.14.5.
 - [x] Branch-aware coverage was 79%, above the configured 75% gate.
 - [x] Ruff completed with no findings.
 - [x] Root, full, spoken, and three Azure demonstration contracts passed strict L3 validation and their inline cases.
@@ -17,6 +17,7 @@ This record applies to VoiceMD `0.1.0a3`, built from source revision `83a4c11fc4
 - [x] Clean installs exercised the wheel with the `azure-voice` extra, `voicemd-azure doctor`, Nemotron compilation, the TypeScript verifier, and the sdist test suite.
 - [x] SPDX 2.3 SBOM and unsigned in-toto/SLSA provenance were generated deterministically and verified against both distributions.
 - [x] Release verification covers a closed `release/` inventory, canonical ZIP boundaries, local and central ZIP records, member types, binary WAV assets, and controlled UTF-8 errors.
+- [x] Git-equivalent CRLF worktrees are accepted while dirty, staged, assume-unchanged, and noncanonical archive changes remain rejected.
 - [x] Source containment, symlink and `extends` handling, YAML resource limits, selector tombstones, sidecar limits, archive limits, and evaluation provenance have regression coverage.
 - [x] Nemotron compilation is ASCII-only, preserves higher-priority application instructions, and stays within the total 5,000-character instruction budget.
 
