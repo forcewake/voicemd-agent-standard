@@ -270,10 +270,24 @@ def _validate_member_collisions(names: list[str], *, label: str) -> None:
             index[key] = name
 
 
-def source_snapshot_sha256(root: Path) -> str:
-    """Hash non-release paths, canonical executable modes, and bytes."""
+def _source_snapshot_digest(entries: list[tuple[str, int, bytes]]) -> str:
+    digest = hashlib.sha256(SOURCE_SNAPSHOT_DOMAIN)
+    for name, permissions, content in sorted(
+        entries, key=lambda item: item[0].encode("utf-8")
+    ):
+        raw_name = name.encode("utf-8")
+        digest.update(len(raw_name).to_bytes(8, "big"))
+        digest.update(raw_name)
+        digest.update(permissions.to_bytes(2, "big"))
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
 
-    entries: list[tuple[str, Path]] = []
+
+def source_snapshot_sha256(root: Path) -> str:
+    """Hash exact non-release worktree bytes and host-visible executable modes."""
+
+    sources: list[tuple[str, Path]] = []
     for path in root.rglob("*"):
         if not path.is_file() or path.is_symlink():
             continue
@@ -282,18 +296,118 @@ def source_snapshot_sha256(root: Path) -> str:
             continue
         if _forbidden_relative(relative) or _generated_source(relative):
             continue
-        entries.append((relative.as_posix(), path))
-    digest = hashlib.sha256(SOURCE_SNAPSHOT_DOMAIN)
-    for name, path in sorted(entries, key=lambda item: item[0].encode("utf-8")):
-        raw_name = name.encode("utf-8")
-        content = path.read_bytes()
-        permissions = 0o755 if path.stat().st_mode & 0o111 else 0o644
-        digest.update(len(raw_name).to_bytes(8, "big"))
-        digest.update(raw_name)
-        digest.update(permissions.to_bytes(2, "big"))
-        digest.update(len(content).to_bytes(8, "big"))
-        digest.update(content)
-    return digest.hexdigest()
+        sources.append((relative.as_posix(), path))
+    return _source_snapshot_digest(
+        [
+            (
+                name,
+                0o755 if path.stat().st_mode & 0o111 else 0o644,
+                path.read_bytes(),
+            )
+            for name, path in sources
+        ]
+    )
+
+
+def _git_output(root: Path, *arguments: str) -> bytes:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", os.fspath(root), *arguments],
+            check=False,
+            capture_output=True,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ReleaseVerificationError("could not inspect the Git source revision") from exc
+    if completed.returncode:
+        detail = completed.stderr[:4096].decode("utf-8", errors="replace").strip()
+        raise ReleaseVerificationError(detail or "Git source inspection did not complete")
+    if len(completed.stdout) > MAX_TOTAL_SIZE:
+        raise ReleaseVerificationError("Git source inspection exceeds the size limit")
+    return completed.stdout
+
+
+def _git_source_entries(root: Path, revision: str) -> list[tuple[str, int, bytes]]:
+    """Read canonical non-release source bytes and modes from one Git commit."""
+
+    root = root.expanduser().resolve()
+    if REVISION_PATTERN.fullmatch(revision) is None:
+        raise ReleaseVerificationError("Git source revision must be a full lowercase SHA-1")
+    top_level = Path(
+        _git_output(root, "rev-parse", "--show-toplevel").decode(
+            "utf-8", errors="strict"
+        ).strip()
+    ).resolve()
+    if top_level != root:
+        raise ReleaseVerificationError(
+            f"source root must be the Git repository root: {top_level}"
+        )
+    _git_output(root, "cat-file", "-e", f"{revision}^{{commit}}")
+    tree = _git_output(root, "ls-tree", "-r", "-z", "--full-tree", revision)
+    records = [record for record in tree.split(b"\0") if record]
+    if not records or len(records) > MAX_ARCHIVE_MEMBERS:
+        raise ReleaseVerificationError("Git source tree has an invalid member count")
+
+    parsed: list[tuple[str, int, str]] = []
+    names: list[str] = []
+    for record in records:
+        try:
+            metadata, raw_path = record.split(b"\t", maxsplit=1)
+            raw_mode, object_type, raw_object_id = metadata.split(maxsplit=2)
+            name = raw_path.decode("utf-8", errors="strict")
+            mode = raw_mode.decode("ascii", errors="strict")
+            object_id = raw_object_id.decode("ascii", errors="strict")
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise ReleaseVerificationError("could not parse a Git source entry") from exc
+        relative = PurePosixPath(name)
+        if (
+            relative.is_absolute()
+            or not relative.parts
+            or any(part in {"", ".", ".."} for part in relative.parts)
+            or "\\" in name
+        ):
+            raise ReleaseVerificationError(f"unsafe Git source path: {name}")
+        if _forbidden_relative(relative):
+            raise ReleaseVerificationError(f"forbidden Git source path: {name}")
+        if object_type != b"blob" or mode not in {"100644", "100755"}:
+            raise ReleaseVerificationError(f"unsupported Git source member: {name}")
+        if re.fullmatch(r"[0-9a-f]{40}", object_id) is None:
+            raise ReleaseVerificationError(f"invalid Git object ID for source member: {name}")
+        names.append(name)
+        if relative.parts[0] != "release":
+            parsed.append((name, 0o755 if mode == "100755" else 0o644, object_id))
+
+    _validate_member_collisions(names, label="Git source tree")
+    entries: list[tuple[str, int, bytes]] = []
+    total_size = 0
+    for name, permissions, object_id in parsed:
+        content = _git_output(root, "cat-file", "blob", object_id)
+        if len(content) > MAX_MEMBER_SIZE:
+            raise ReleaseVerificationError(f"oversized Git source member: {name}")
+        total_size += len(content)
+        if total_size > MAX_TOTAL_SIZE:
+            raise ReleaseVerificationError("Git source tree exceeds the size limit")
+        entries.append((name, permissions, content))
+    if not entries:
+        raise ReleaseVerificationError("Git source tree contains no non-release files")
+    return entries
+
+
+def git_source_snapshot_sha256(root: Path, revision: str) -> str:
+    """Hash canonical source bytes and executable modes from one Git revision."""
+
+    return _source_snapshot_digest(_git_source_entries(root, revision))
+
+
+def _materialize_git_source(
+    destination: Path, entries: list[tuple[str, int, bytes]]
+) -> Path:
+    destination.mkdir(parents=True, exist_ok=False)
+    for name, _permissions, content in entries:
+        target = destination.joinpath(*PurePosixPath(name).parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    return destination
 
 
 def sha256(path: Path) -> str:
@@ -1779,18 +1893,40 @@ def verify_distribution_bundle(
         )
     wheel, sdist = wheels[0], sdists[0]
     package_name, package_version = _wheel_identity(wheel)
-    verify_wheel(
-        wheel,
-        package_name=package_name,
-        package_version=package_version,
-        source_root=source_root,
-    )
-    verify_sdist(
-        sdist,
-        package_name=package_name,
-        package_version=package_version,
-        source_root=source_root,
-    )
+    git_marker = source_root / ".git"
+    if git_marker.exists():
+        git_entries = _git_source_entries(source_root, source_revision)
+        source_snapshot = _source_snapshot_digest(git_entries)
+        with tempfile.TemporaryDirectory(prefix="voicemd-git-source-") as directory:
+            canonical_root = _materialize_git_source(
+                Path(directory) / "source", git_entries
+            )
+            verify_wheel(
+                wheel,
+                package_name=package_name,
+                package_version=package_version,
+                source_root=canonical_root,
+            )
+            verify_sdist(
+                sdist,
+                package_name=package_name,
+                package_version=package_version,
+                source_root=canonical_root,
+            )
+    else:
+        source_snapshot = source_snapshot_sha256(source_root)
+        verify_wheel(
+            wheel,
+            package_name=package_name,
+            package_version=package_version,
+            source_root=source_root,
+        )
+        verify_sdist(
+            sdist,
+            package_name=package_name,
+            package_version=package_version,
+            source_root=source_root,
+        )
     artifacts = {wheel.name: sha256(wheel), sdist.name: sha256(sdist)}
     verify_supply_chain_metadata(
         metadata,
@@ -1798,7 +1934,7 @@ def verify_distribution_bundle(
         package_version=package_version,
         source_revision=source_revision,
         release_revision=release_revision,
-        source_snapshot=source_snapshot_sha256(source_root),
+        source_snapshot=source_snapshot,
         artifacts=artifacts,
     )
 

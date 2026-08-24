@@ -151,6 +151,32 @@ def test_release_builder_accepts_git_equivalent_crlf_checkout(tmp_path: Path):
         assert archive.read("voicemd-agent-standard/.gitignore") == b".env\n.coverage\n"
 
 
+def test_git_source_snapshot_uses_canonical_blobs_for_crlf_checkout(tmp_path: Path):
+    builder = _load_script("build_release")
+    verifier = _load_script("verify_release")
+    repository = _repository(tmp_path / "repository")
+    _git(repository, "config", "core.autocrlf", "true")
+    (repository / "README.md").write_bytes(b"tracked\r\n")
+    (repository / ".gitignore").write_bytes(b".env\r\n.coverage\r\n")
+    revision = _head(repository)
+
+    expected = builder._source_snapshot_sha256(
+        repository, builder.tracked_files(repository, revision)
+    )
+    assert verifier.git_source_snapshot_sha256(repository, revision) == expected
+    assert verifier.source_snapshot_sha256(repository) != expected
+
+
+def test_raw_source_snapshot_keeps_lf_and_crlf_distinct(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    source = tmp_path / "VOICE.md"
+    source.write_bytes(b"Voice contract.\n")
+    lf_snapshot = verifier.source_snapshot_sha256(tmp_path)
+    source.write_bytes(b"Voice contract.\r\n")
+
+    assert verifier.source_snapshot_sha256(tmp_path) != lf_snapshot
+
+
 def test_sdist_normalization_is_deterministic(tmp_path: Path):
     builder = _load_script("build_release")
 
@@ -1246,7 +1272,7 @@ def test_release_metadata_is_deterministic_and_verifiable(
         package_version=FIXTURE_PACKAGE_VERSION,
         source_revision=source_revision,
         release_revision=release_revision,
-        source_snapshot=verifier.source_snapshot_sha256(repository),
+        source_snapshot=verifier.git_source_snapshot_sha256(repository, source_revision),
         artifacts={wheel.name: _digest(wheel), sdist.name: _digest(sdist)},
     )
 
