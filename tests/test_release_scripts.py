@@ -248,13 +248,21 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _release_tree(tmp_path: Path, verifier, *, status: str = "current") -> Path:
+def _release_tree(
+    tmp_path: Path,
+    verifier,
+    *,
+    status: str = "current",
+    required_wav_bytes: bytes | None = None,
+) -> Path:
     builder = _load_script("build_release")
     root = tmp_path / "voicemd-agent-standard"
     for relative in verifier.REQUIRED:
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(f"fixture for {relative}\n", encoding="utf-8")
+    if required_wav_bytes is not None:
+        (root / "site/audio/calm-support.wav").write_bytes(required_wav_bytes)
     (root / "LICENSE").write_text("fixture license\n", encoding="utf-8")
     (root / "NOTICE").write_text("fixture notice\n", encoding="utf-8")
     (root / "src/voicemd/__init__.py").write_text("", encoding="utf-8")
@@ -389,6 +397,18 @@ def test_release_verifier_accepts_complete_current_artifacts(tmp_path: Path):
     verifier = _load_script("verify_release")
     root = _release_tree(tmp_path, verifier)
     archive = _zip_tree(root, tmp_path / "release.zip")
+    verifier.verify_archive(archive, install_checks=False)
+
+
+def test_release_verifier_accepts_non_utf8_required_wav(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    root = _release_tree(
+        tmp_path,
+        verifier,
+        required_wav_bytes=b"RIFF\xff\xfe\x80\x00WAVEfmt ",
+    )
+    archive = _zip_tree(root, tmp_path / "release-with-binary-audio.zip")
+
     verifier.verify_archive(archive, install_checks=False)
 
 

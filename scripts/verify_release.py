@@ -83,6 +83,11 @@ REQUIRED = {
     "release/PROVENANCE.intoto.jsonl",
     "release/VERIFICATION.md",
 }
+REQUIRED_BINARY_FILES = {
+    "site/audio/calm-support.wav",
+    "site/audio/executive-brief.wav",
+    "site/audio/incident-commander.wav",
+}
 FORBIDDEN_PARTS = {
     ".git",
     ".venv",
@@ -288,11 +293,15 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _read_nonempty(path: Path) -> str:
+def _require_nonempty_file(path: Path) -> None:
     if not path.is_file():
         raise ReleaseVerificationError(f"required file missing: {path}")
     if path.stat().st_size <= 0:
         raise ReleaseVerificationError(f"required file is empty: {path}")
+
+
+def _read_nonempty(path: Path) -> str:
+    _require_nonempty_file(path)
     return path.read_text(encoding="utf-8")
 
 
@@ -1576,7 +1585,11 @@ def verify_archive(path: Path, *, install_checks: bool = False) -> None:
             temporary = Path(directory)
             root = _safe_extract(archive, temporary)
             for relative in REQUIRED:
-                _read_nonempty(root / relative)
+                required_path = root / relative
+                if relative in REQUIRED_BINARY_FILES:
+                    _require_nonempty_file(required_path)
+                else:
+                    _read_nonempty(required_path)
             wheel, sdist = verify_artifacts(root)
             if install_checks:
                 verify_runtime(root, wheel, sdist, temporary)
