@@ -1,8 +1,8 @@
 # Verification record — 2026-08-25
 
-This record applies to VoiceMD `0.1.0a3`, built from source revision `a0102e17d1c97898b00847df2f64a9e5a51ad07b`. The embedded provenance is deterministic and unsigned.
+This record applies to VoiceMD `0.1.0a3`, built from source revision `406269669ceb1721238e1b3821d3314dff6d6e6f`. The embedded provenance is deterministic and unsigned.
 
-- [x] 358 unit and regression tests passed on Python 3.14.5; the isolated Python 3.10.19 suite completed with 357 passed and one platform skip, and the unpacked sdist suite completed with the same result on Python 3.14.5.
+- [x] 360 unit and regression tests passed on Python 3.14.5; the isolated Python 3.10.19 and unpacked-sdist suites each completed with 359 passed and one platform skip.
 - [x] Branch-aware coverage was 79%, above the configured 75% gate.
 - [x] Ruff completed with no findings.
 - [x] Root, full, spoken, and three Azure demonstration contracts passed strict L3 validation and their inline cases.

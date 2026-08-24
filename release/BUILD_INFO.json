@@ -4,31 +4,31 @@
   "specification_version": "0.1.0-draft.2",
   "package_version": "0.1.0a3",
   "artifact_status": "current",
-  "source_revision": "a0102e17d1c97898b00847df2f64a9e5a51ad07b",
-  "release_revision": "a0102e17d1c97898b00847df2f64a9e5a51ad07b",
-  "source_sha256": "9fca285a710ea993b9d423da6ecc72850dd04713b2728df5010f3490ed63f78a",
+  "source_revision": "406269669ceb1721238e1b3821d3314dff6d6e6f",
+  "release_revision": "406269669ceb1721238e1b3821d3314dff6d6e6f",
+  "source_sha256": "bedc980b77d586bda88380f0c767269ca209bfa47548e81746fde3cba113f7b1",
   "built_at": "2026-08-25",
   "python": "3.14.5",
-  "tests_passed": 358,
+  "tests_passed": 360,
   "artifacts": {
     "voicemd-0.1.0a3-py3-none-any.whl": {
-      "sha256": "f8e11d981f14a7314d697c3688c249ceb3167a5728683fd9ad950dbacc290d31"
+      "sha256": "eae63055956e1dd1d692612d5bd3957ab5aa973adab920c295a371ad016ee82a"
     },
     "voicemd-0.1.0a3.tar.gz": {
-      "sha256": "6b5e963c4008746a38adc53940e496793e8794912c889a4d9544bed00240eed4"
+      "sha256": "af1f32deac593ad5917701224c930208b45489705b8f57069875908d5bf0b6a7"
     }
   },
   "release_metadata": {
     "PROVENANCE.intoto.jsonl": {
-      "sha256": "a80fc38fa9a56e6fb324254e609e47a90420a698b5bd8d8cd21311a59ef3c111"
+      "sha256": "bbdf742bb128b3e22e91b1ff0c42f65d7ec72a6f3c8f7591612fa1b9c3ccb87a"
     },
     "SBOM.spdx.json": {
-      "sha256": "e1134718879ba2f19846cd9dac4a0a457dc83b8e5a2d37a09298e40df1bbc374"
+      "sha256": "4836d2c3d9e213746329aa98a9ff9eb6f1ab3a3f60416182ccf0bc38114a3d64"
     }
   },
   "verification": [
     "strict L3 validation and inline cases for the root, full, spoken, and Azure demonstration contracts",
-    "358 unit and regression tests plus Python 3.10 compatibility and clean wheel and sdist runtime checks",
+    "360 unit and regression tests plus Python 3.10 compatibility and clean wheel and sdist runtime checks",
     "79 percent branch-aware coverage",
     "byte-identical wheel and normalized sdist across two pinned builds",
     "Twine metadata, exact distribution inventory, and wheel RECORD verification",
