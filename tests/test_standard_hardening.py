@@ -492,5 +492,8 @@ Body.
         output_format="json",
         include_provenance=True,
     )
-    assert str(path.resolve()) in with_provenance
-    assert "provenance" in json.loads(with_provenance)
+    provenance_payload = json.loads(with_provenance)
+    assert provenance_payload["provenance"]["sources"] == [str(path.resolve())]
+    assert provenance_payload["provenance"]["markdown_bodies"] == [
+        {"source": str(path.resolve()), "content": "Body."}
+    ]

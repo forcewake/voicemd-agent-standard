@@ -44,6 +44,10 @@ def test_transformers_places_voice_below_required_application_authority():
         adapter.compose_system_instructions(" \t\r\n", "voice")
 
 
+@pytest.mark.skipif(
+    os.name == "nt" or shutil.which("bash") is None,
+    reason="Ollama build.sh is a POSIX adapter; Windows bash may invoke WSL",
+)
 def test_ollama_builder_requires_and_orders_application_authority(tmp_path: Path):
     integration = tmp_path / "ollama"
     integration.mkdir()

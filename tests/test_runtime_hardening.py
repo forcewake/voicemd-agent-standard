@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib.util
 import json
 import shutil
@@ -425,16 +426,17 @@ def test_compact_compilers_preserve_non_voice_edge_whitespace():
     ).resolve().as_uri()
     script = (
         f'import {{ compileCompact }} from {json.dumps(verifier_url)}; '
-        f"console.log(JSON.stringify(compileCompact({json.dumps(contract_data)}, "
-        f"[{json.dumps(body)}])));"
+        f"const output = compileCompact({json.dumps(contract_data)}, [{json.dumps(body)}]); "
+        'console.log(Buffer.from(output, "utf8").toString("base64"));'
     )
     completed = subprocess.run(
         ["node", "--input-type=module", "-e", script],
         check=True,
         capture_output=True,
         text=True,
+        encoding="ascii",
     )
-    assert json.loads(completed.stdout) == python_output
+    assert base64.b64decode(completed.stdout).decode("utf-8") == python_output
 
 
 def test_source_labels_never_expose_external_absolute_paths(tmp_path: Path):

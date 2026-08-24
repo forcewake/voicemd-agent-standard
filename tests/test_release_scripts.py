@@ -24,6 +24,9 @@ from voicemd import __version__
 
 REPOSITORY_ROOT = Path(__file__).parents[1]
 FIXTURE_REVISION = "a" * 40
+FIXTURE_PACKAGE_VERSION = __version__
+FIXTURE_WHEEL_NAME = f"voicemd-{FIXTURE_PACKAGE_VERSION}-py3-none-any.whl"
+FIXTURE_SDIST_NAME = f"voicemd-{FIXTURE_PACKAGE_VERSION}.tar.gz"
 
 
 def _load_script(name: str):
@@ -134,6 +137,20 @@ def test_release_builder_rejects_assume_unchanged_worktree_changes(tmp_path: Pat
         builder.build_release(repository, tmp_path / "release.zip")
 
 
+def test_release_builder_accepts_git_equivalent_crlf_checkout(tmp_path: Path):
+    builder = _load_script("build_release")
+    repository = _repository(tmp_path / "repository")
+    _git(repository, "config", "core.autocrlf", "true")
+    (repository / "README.md").write_bytes(b"tracked\r\n")
+    (repository / ".gitignore").write_bytes(b".env\r\n.coverage\r\n")
+
+    release = builder.build_release(repository, tmp_path / "release.zip")
+
+    with zipfile.ZipFile(release) as archive:
+        assert archive.read("voicemd-agent-standard/README.md") == b"tracked\n"
+        assert archive.read("voicemd-agent-standard/.gitignore") == b".env\n.coverage\n"
+
+
 def test_sdist_normalization_is_deterministic(tmp_path: Path):
     builder = _load_script("build_release")
 
@@ -182,7 +199,7 @@ def _wheel(
     path: Path,
     *,
     name: str = "voicemd",
-    version: str = "0.1.0",
+    version: str = FIXTURE_PACKAGE_VERSION,
     files: dict[str, bytes] | None = None,
     license_text: bytes = b"fixture license\n",
     notice_text: bytes = b"fixture notice\n",
@@ -223,7 +240,7 @@ def _sdist(
     path: Path,
     *,
     name: str = "voicemd",
-    version: str = "0.1.0",
+    version: str = FIXTURE_PACKAGE_VERSION,
     files: dict[str, bytes] | None = None,
 ) -> None:
     root = f"{name}-{version}"
@@ -270,7 +287,7 @@ def _release_tree(
     (root / "src/voicemd/__init__.py").write_text("", encoding="utf-8")
 
     (root / "pyproject.toml").write_text(
-        '[project]\nname = "voicemd"\nversion = "0.1.0"\n',
+        f'[project]\nname = "voicemd"\nversion = "{FIXTURE_PACKAGE_VERSION}"\n',
         encoding="utf-8",
     )
     (root / "SPECIFICATION.md").write_text(
@@ -284,15 +301,15 @@ def _release_tree(
                 "specification_version": "0.1.0-draft.1",
                 "reference_implementation": {
                     "package": "voicemd",
-                    "version": "0.1.0",
+                    "version": FIXTURE_PACKAGE_VERSION,
                 },
             }
         ),
         encoding="utf-8",
     )
 
-    wheel_name = "voicemd-0.1.0-py3-none-any.whl"
-    sdist_name = "voicemd-0.1.0.tar.gz"
+    wheel_name = FIXTURE_WHEEL_NAME
+    sdist_name = FIXTURE_SDIST_NAME
     wheel = root / "release" / wheel_name
     sdist = root / "release" / sdist_name
     package_files = {
@@ -321,7 +338,7 @@ def _release_tree(
     source_snapshot = verifier.source_snapshot_sha256(root)
     distribution_metadata = builder.DistributionMetadata(
         name="voicemd",
-        version="0.1.0",
+        version=FIXTURE_PACKAGE_VERSION,
         license_expression="Apache-2.0",
         requirements=(),
         artifacts=(wheel, sdist),
@@ -347,7 +364,7 @@ def _release_tree(
                     sbom_path.name: _digest(sbom_path),
                 },
                 package_name="voicemd",
-                package_version="0.1.0",
+                package_version=FIXTURE_PACKAGE_VERSION,
                 source_revision=source_revision,
                 release_revision=release_revision,
                 source_snapshot=source_snapshot,
@@ -365,7 +382,7 @@ def _release_tree(
         "built_at": "2026-08-24",
         "tests_passed": 1,
         "package_name": "voicemd",
-        "package_version": "0.1.0",
+        "package_version": FIXTURE_PACKAGE_VERSION,
         "artifact_status": status,
         "source_revision": source_revision,
         "release_revision": release_revision,
@@ -391,7 +408,8 @@ def _zip_tree(root: Path, output: Path) -> Path:
     with zipfile.ZipFile(output, "w") as archive:
         for path in sorted(root.rglob("*")):
             if path.is_file():
-                archive.write(path, path.relative_to(root.parent).as_posix())
+                relative = path.relative_to(root.parent).as_posix()
+                archive.writestr(_regular_zip_info(relative), path.read_bytes())
     return output
 
 
@@ -401,6 +419,22 @@ def _regular_zip_info(name: str) -> zipfile.ZipInfo:
     info.external_attr = (stat.S_IFREG | 0o644) << 16
     info.compress_type = zipfile.ZIP_STORED
     return info
+
+
+def test_release_verifier_keeps_canonical_unix_member_requirement(tmp_path: Path):
+    verifier = _load_script("verify_release")
+    archive_path = tmp_path / "windows-member.zip"
+    info = zipfile.ZipInfo(f"{verifier.ARCHIVE_ROOT}/README.md")
+    info.create_system = 0
+    info.external_attr = 0
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr(info, b"fixture\n")
+
+    with (
+        zipfile.ZipFile(archive_path) as archive,
+        pytest.raises(verifier.ReleaseVerificationError, match="Unix regular file"),
+    ):
+        verifier._validate_archive_members(archive)
 
 
 def _insert_before_central_directory(path: Path, payload: bytes) -> None:
@@ -642,7 +676,7 @@ def test_release_verifier_rejects_stale_or_mismatched_evidence(tmp_path: Path):
 
     mismatched_root = _release_tree(tmp_path / "mismatch", verifier)
     checksum_path = mismatched_root / "release/SHA256SUMS"
-    checksum_path.write_text("0" * 64 + "  voicemd-0.1.0.tar.gz\n", encoding="utf-8")
+    checksum_path.write_text("0" * 64 + f"  {FIXTURE_SDIST_NAME}\n", encoding="utf-8")
     with pytest.raises(verifier.ReleaseVerificationError, match="does not match"):
         verifier.verify_artifacts(mismatched_root)
 
@@ -668,6 +702,10 @@ def test_release_verifier_rejects_zip_path_traversal(tmp_path: Path):
         verifier._validate_archive_members(archive)
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Windows does not expose portable POSIX executable permission bits",
+)
 def test_release_verifier_restores_executable_intent(tmp_path: Path):
     verifier = _load_script("verify_release")
     archive_path = tmp_path / "executable.zip"
@@ -720,27 +758,27 @@ def test_release_verifier_rejects_source_snapshot_mismatch(tmp_path: Path):
 
 def test_sdist_rejects_forbidden_build_output(tmp_path: Path):
     verifier = _load_script("verify_release")
-    sdist = tmp_path / "voicemd-0.1.0.tar.gz"
+    sdist = tmp_path / FIXTURE_SDIST_NAME
     _sdist(sdist, files={"integrations/typescript/node_modules/secret": b"bad"})
 
     with pytest.raises(verifier.ReleaseVerificationError, match="forbidden build/cache"):
         verifier.verify_sdist(
             sdist,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
         )
 
 
 def test_sdist_rejects_nested_mixed_case_env_directory(tmp_path: Path):
     verifier = _load_script("verify_release")
-    sdist = tmp_path / "voicemd-0.1.0.tar.gz"
+    sdist = tmp_path / FIXTURE_SDIST_NAME
     _sdist(sdist, files={"docs/.EnV.local/secret.txt": b"TOKEN=leaked\n"})
 
     with pytest.raises(verifier.ReleaseVerificationError, match="forbidden build/cache"):
         verifier.verify_sdist(
             sdist,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
         )
 
 
@@ -829,10 +867,10 @@ def test_wheel_rejects_record_tampering(tmp_path: Path):
     package_root = source_root / "src/voicemd"
     package_root.mkdir(parents=True)
     (package_root / "__init__.py").write_bytes(b"tampered\n")
-    (source_root / "LICENSE").write_text("fixture license\n", encoding="utf-8")
-    (source_root / "NOTICE").write_text("fixture notice\n", encoding="utf-8")
+    (source_root / "LICENSE").write_bytes(b"fixture license\n")
+    (source_root / "NOTICE").write_bytes(b"fixture notice\n")
     original = tmp_path / "original.whl"
-    wheel = tmp_path / "voicemd-0.1.0-py3-none-any.whl"
+    wheel = tmp_path / FIXTURE_WHEEL_NAME
     _wheel(original, files={"voicemd/__init__.py": b"original\n"})
     with zipfile.ZipFile(original) as archive:
         contents = {info.filename: archive.read(info) for info in archive.infolist()}
@@ -845,7 +883,7 @@ def test_wheel_rejects_record_tampering(tmp_path: Path):
         verifier.verify_wheel(
             wheel,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_root=source_root,
         )
 
@@ -856,16 +894,16 @@ def test_wheel_rejects_unexpected_payload(tmp_path: Path):
     package_root = source_root / "src/voicemd"
     package_root.mkdir(parents=True)
     (package_root / "__init__.py").write_bytes(b"")
-    (source_root / "LICENSE").write_text("fixture license\n", encoding="utf-8")
-    (source_root / "NOTICE").write_text("fixture notice\n", encoding="utf-8")
-    wheel = tmp_path / "voicemd-0.1.0-py3-none-any.whl"
+    (source_root / "LICENSE").write_bytes(b"fixture license\n")
+    (source_root / "NOTICE").write_bytes(b"fixture notice\n")
+    wheel = tmp_path / FIXTURE_WHEEL_NAME
     _wheel(wheel, files={"voicemd/undeclared_payload.bin": b"unexpected"})
 
     with pytest.raises(verifier.ReleaseVerificationError, match="unexpected files"):
         verifier.verify_wheel(
             wheel,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_root=source_root,
         )
 
@@ -876,14 +914,14 @@ def test_sdist_rejects_unexpected_payload(tmp_path: Path):
     source_root.mkdir()
     pyproject = b"[build-system]\nrequires = ['setuptools']\n"
     (source_root / "pyproject.toml").write_bytes(pyproject)
-    sdist = tmp_path / "voicemd-0.1.0.tar.gz"
+    sdist = tmp_path / FIXTURE_SDIST_NAME
     _sdist(sdist, files={"pyproject.toml": pyproject, "setup.py": b"raise SystemExit\n"})
 
     with pytest.raises(verifier.ReleaseVerificationError, match="inventory mismatch"):
         verifier.verify_sdist(
             sdist,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_root=source_root,
         )
 
@@ -914,9 +952,9 @@ def test_wheel_rejects_missing_azure_console_entrypoint(tmp_path: Path):
     package_root = source_root / "src/voicemd"
     package_root.mkdir(parents=True)
     (package_root / "__init__.py").write_bytes(b"")
-    (source_root / "LICENSE").write_text("fixture license\n", encoding="utf-8")
-    (source_root / "NOTICE").write_text("fixture notice\n", encoding="utf-8")
-    wheel = tmp_path / "voicemd-0.1.0-py3-none-any.whl"
+    (source_root / "LICENSE").write_bytes(b"fixture license\n")
+    (source_root / "NOTICE").write_bytes(b"fixture notice\n")
+    wheel = tmp_path / FIXTURE_WHEEL_NAME
     _wheel(
         wheel,
         entry_points=b"[console_scripts]\nvoicemd = voicemd.cli:main\n",
@@ -926,7 +964,7 @@ def test_wheel_rejects_missing_azure_console_entrypoint(tmp_path: Path):
         verifier.verify_wheel(
             wheel,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_root=source_root,
         )
 
@@ -937,7 +975,7 @@ def test_sdist_rejects_tampered_generated_setup_cfg(tmp_path: Path):
     source_root.mkdir()
     pyproject = b"[build-system]\nrequires = ['setuptools']\n"
     (source_root / "pyproject.toml").write_bytes(pyproject)
-    sdist = tmp_path / "voicemd-0.1.0.tar.gz"
+    sdist = tmp_path / FIXTURE_SDIST_NAME
     _sdist(
         sdist,
         files={
@@ -950,7 +988,7 @@ def test_sdist_rejects_tampered_generated_setup_cfg(tmp_path: Path):
         verifier.verify_sdist(
             sdist,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_root=source_root,
         )
 
@@ -1144,6 +1182,10 @@ def test_runtime_subprocess_has_timeout(
         )
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Windows does not expose portable POSIX executable permission bits",
+)
 def test_source_snapshot_binds_executable_intent(tmp_path: Path):
     verifier = _load_script("verify_release")
     root = tmp_path / "source"
@@ -1165,8 +1207,8 @@ def test_release_metadata_is_deterministic_and_verifiable(
     repository = _repository(tmp_path / "repository")
     distributions = tmp_path / "distributions"
     distributions.mkdir()
-    wheel = distributions / "voicemd-0.1.0-py3-none-any.whl"
-    sdist = distributions / "voicemd-0.1.0.tar.gz"
+    wheel = distributions / FIXTURE_WHEEL_NAME
+    sdist = distributions / FIXTURE_SDIST_NAME
     _wheel(wheel)
     _sdist(sdist)
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1787529600")
@@ -1201,7 +1243,7 @@ def test_release_metadata_is_deterministic_and_verifiable(
     verifier.verify_supply_chain_metadata(
         first,
         package_name="voicemd",
-        package_version="0.1.0",
+        package_version=FIXTURE_PACKAGE_VERSION,
         source_revision=source_revision,
         release_revision=release_revision,
         source_snapshot=verifier.source_snapshot_sha256(repository),
@@ -1227,8 +1269,8 @@ def test_release_metadata_rejects_mismatched_source_tree(tmp_path: Path):
     release_revision = _head(repository)
     distributions = tmp_path / "distributions"
     distributions.mkdir()
-    _wheel(distributions / "voicemd-0.1.0-py3-none-any.whl")
-    _sdist(distributions / "voicemd-0.1.0.tar.gz")
+    _wheel(distributions / FIXTURE_WHEEL_NAME)
+    _sdist(distributions / FIXTURE_SDIST_NAME)
 
     with pytest.raises(builder.ReleaseBuildError, match="does not match --source-revision"):
         builder.generate_release_metadata(
@@ -1254,8 +1296,8 @@ def test_release_metadata_allows_release_only_commit_after_source_revision(
     release_revision = _head(repository)
     distributions = tmp_path / "distributions"
     distributions.mkdir()
-    _wheel(distributions / "voicemd-0.1.0-py3-none-any.whl")
-    _sdist(distributions / "voicemd-0.1.0.tar.gz")
+    _wheel(distributions / FIXTURE_WHEEL_NAME)
+    _sdist(distributions / FIXTURE_SDIST_NAME)
 
     sbom, provenance = builder.generate_release_metadata(
         repository,
@@ -1280,8 +1322,8 @@ def test_release_metadata_tampering_is_rejected(
     repository = _repository(tmp_path / "repository")
     distributions = tmp_path / "distributions"
     distributions.mkdir()
-    wheel = distributions / "voicemd-0.1.0-py3-none-any.whl"
-    sdist = distributions / "voicemd-0.1.0.tar.gz"
+    wheel = distributions / FIXTURE_WHEEL_NAME
+    sdist = distributions / FIXTURE_SDIST_NAME
     _wheel(wheel)
     _sdist(sdist)
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1787529600")
@@ -1302,7 +1344,7 @@ def test_release_metadata_tampering_is_rejected(
         verifier.verify_supply_chain_metadata(
             metadata,
             package_name="voicemd",
-            package_version="0.1.0",
+            package_version=FIXTURE_PACKAGE_VERSION,
             source_revision=_head(repository),
             release_revision=_head(repository),
             source_snapshot=verifier.source_snapshot_sha256(repository),

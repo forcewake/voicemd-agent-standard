@@ -322,7 +322,7 @@ def _parse_index(root: Path) -> dict[str, tuple[str, str]]:
 
 
 def _validate_clean_checkout(root: Path, files: list[TrackedFile]) -> None:
-    """Prove that index and worktree bytes match the selected commit tree."""
+    """Prove that index and worktree content match the selected commit tree."""
 
     untracked = [
         path.decode("utf-8", errors="replace")
@@ -363,8 +363,18 @@ def _validate_clean_checkout(root: Path, files: list[TrackedFile]) -> None:
             resolved.relative_to(root)
         except ValueError as exc:
             raise ReleaseBuildError(f"tracked path escapes the repository: {relative_text}") from exc
-        committed = _git(root, "cat-file", "blob", tracked.object_id)
-        if source.read_bytes() != committed:
+        # Hash through Git's clean-filter pipeline so a checkout using a native
+        # CRLF representation remains equivalent to the canonical blob. This
+        # still reads the worktree even for assume-unchanged entries and does
+        # not add the candidate object to Git's object database.
+        worktree_object_id = _git(
+            root,
+            "hash-object",
+            f"--path={relative_text}",
+            "--",
+            relative_text,
+        ).decode("ascii", errors="strict").strip()
+        if worktree_object_id != tracked.object_id:
             raise ReleaseBuildError(
                 "tracked source and index must match the selected release revision: "
                 f"{relative_text}"
