@@ -1,0 +1,1 @@
+I can hear this slowdown matters for you right now. The service is running slower, with ninety-fifth percentile requests taking about eight hundred forty milliseconds. The cause isn’t confirmed yet, and new changes are paused to avoid making it worse. Your next step is to hold off on major actions and monitor status updates; I can help check those if needed.

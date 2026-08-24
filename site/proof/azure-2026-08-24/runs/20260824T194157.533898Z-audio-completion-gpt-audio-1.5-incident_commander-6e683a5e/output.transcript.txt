@@ -1,0 +1,1 @@
+Status: the service is degraded at 840 milliseconds at the ninety-fifth percentile with no confirmed cause. Impact: users see slow responses but no data loss. The next action is to keep the rollout paused and investigate the root cause. Keep the rollout paused.

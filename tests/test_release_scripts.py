@@ -271,7 +271,7 @@ def _release_tree(tmp_path: Path, verifier, *, status: str = "current") -> Path:
         json.dumps(
             {
                 "project": "VoiceMD",
-                "release": "0.1.0-draft.1",
+                "specification_version": "0.1.0-draft.1",
                 "reference_implementation": {
                     "package": "voicemd",
                     "version": "0.1.0",

@@ -45,6 +45,13 @@ azure-voice = ["websockets>=13,<17"]
 voicemd = "voicemd.cli:main"
 voicemd-azure = "voicemd.azure_voice.cli:main"
 
+[project.urls]
+Homepage = "https://forcewake.github.io/voicemd-agent-standard/"
+Documentation = "https://github.com/forcewake/voicemd-agent-standard#readme"
+Source = "https://github.com/forcewake/voicemd-agent-standard"
+Issues = "https://github.com/forcewake/voicemd-agent-standard/issues"
+Changelog = "https://github.com/forcewake/voicemd-agent-standard/blob/main/CHANGELOG.md"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

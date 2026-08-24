@@ -1,0 +1,1 @@
+The decision is to keep the rollout paused because latency hit 840 milliseconds at the 95th percentile and the cause is unknown. The main risk is operating with high latency and no root cause identified. The owner must investigate and resolve this uncertainty before resuming rollout.

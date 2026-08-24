@@ -73,6 +73,7 @@ jobs:
       - run: python -m pip check
       - run: ruff check .
       - run: python -m pytest tests/test_release_scripts.py
+      - run: python scripts/verify_pages.py site
       - run: python scripts/build_release.py --output /tmp/voicemd-a.zip --provenance-output /tmp/voicemd-a.intoto.jsonl
       - run: python scripts/build_release.py --output /tmp/voicemd-b.zip
       - run: cmp /tmp/voicemd-a.zip /tmp/voicemd-b.zip

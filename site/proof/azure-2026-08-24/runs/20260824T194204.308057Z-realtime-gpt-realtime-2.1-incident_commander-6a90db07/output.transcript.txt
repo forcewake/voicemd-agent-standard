@@ -1,0 +1,1 @@
+Status: confirmed degraded service. Impact: users may see higher latency, with the ninety-fifth percentile at 840 milliseconds, but there is no data loss reported. The cause is unknown, so do not assume a fix will work. Next action: keep the rollout paused, investigate the cause, and confirm mitigation in a controlled change before resuming.

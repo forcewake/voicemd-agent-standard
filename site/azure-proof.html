@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A checksum-bound VoiceMD proof snapshot comparing three communication contracts across Azure audio and realtime deployments.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'none'; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Azure Voice Proof · VoiceMD</title>
+  <link rel="stylesheet" href="./assets/site.css">
+  <script defer src="./assets/app.js"></script>
+</head>
+<body data-page="azure-proof" data-proof-index="./proof/azure-2026-08-24/proof-index.json">
+  <a class="skip-link" href="#main-content">Skip to evidence</a>
+
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Primary navigation">
+      <a class="brand" href="./index.html" aria-label="VoiceMD standard home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>VoiceMD</span>
+      </a>
+      <div class="nav-links">
+        <a href="#matrix">Matrix</a>
+        <a href="#boundary">Boundary</a>
+        <a href="#proof">Limits</a>
+        <a class="nav-cta" href="./index.html">Standard</a>
+      </div>
+    </nav>
+
+    <div class="hero shell" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="signal" aria-hidden="true"></span> Recorded Azure comparison · 24 Aug 2026</p>
+        <h1>Inspect the<br><span>exact records.</span></h1>
+        <p class="hero-lede">One synthetic incident scenario, three <code>VOICE.md</code> contracts, and three Azure generation lanes. Every observed matrix cell is retained.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#matrix">Inspect the 3×3 matrix</a>
+          <a class="button secondary" href="./index.html">About the standard</a>
+        </div>
+      </div>
+
+      <aside class="hero-proof" aria-labelledby="proof-card-title">
+        <div class="proof-card-head">
+          <p class="kicker" id="proof-card-title">Observed snapshot</p>
+          <span class="integrity-badge">11 / 11 bundles verified</span>
+        </div>
+        <div class="hero-score" aria-label="Nine matrix cells and eleven evidence bundles">
+          <strong>9</strong>
+          <span>CELLS</span>
+          <i aria-hidden="true"></i>
+          <strong>11</strong>
+          <span>BUNDLES</span>
+        </div>
+        <p>Artifact integrity and contract conformance are separate claims. The page exposes exact results rather than reducing them to a model ranking.</p>
+        <dl class="compact-facts">
+          <div><dt>Scenario</dt><dd>degraded-service-en</dd></div>
+          <div><dt>Acoustic voice</dt><dd>alloy</dd></div>
+          <div><dt>Provider</dt><dd>Azure OpenAI</dd></div>
+        </dl>
+      </aside>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="control-strip" aria-labelledby="controls-title">
+      <div class="shell control-layout">
+        <div>
+          <p class="kicker">Controlled comparison</p>
+          <h2 id="controls-title">What stayed fixed</h2>
+        </div>
+        <dl class="control-grid">
+          <div><dt>Facts</dt><dd>Degraded · 840 ms p95 · no reported data loss · rollout paused</dd></div>
+          <div><dt>Prompt hash</dt><dd><code id="prompt-hash">loading</code></dd></div>
+          <div><dt>Scenario hash</dt><dd><code id="scenario-hash">loading</code></dd></div>
+          <div><dt>Endpoint fingerprint</dt><dd><code id="endpoint-hash">loading</code></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="section shell" id="matrix" aria-labelledby="matrix-title">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Nine recorded provider responses</p>
+          <h2 id="matrix-title">Contract × deployment matrix</h2>
+        </div>
+        <p>MATCH means this response met the scenario assertions and its selected <code>VOICE.md</code> lint rules. It is not a general model score.</p>
+      </div>
+
+      <div class="matrix-frame">
+        <table>
+          <caption>Deterministic result for every contract and generation lane</caption>
+          <thead>
+            <tr id="matrix-head">
+              <th scope="col">VOICE.md contract</th>
+            </tr>
+          </thead>
+          <tbody id="matrix-body"></tbody>
+        </table>
+      </div>
+
+      <div class="legend" aria-label="Result legend">
+        <span><i class="legend-dot match-dot" aria-hidden="true"></i>Matched all selected checks</span>
+        <span><i class="legend-dot mismatch-dot" aria-hidden="true"></i>One or more selected checks not met</span>
+      </div>
+
+      <div class="run-grid" id="matrix-runs" aria-label="Matrix run details"></div>
+    </section>
+
+    <section class="boundary-section" id="boundary" aria-labelledby="boundary-title">
+      <div class="shell">
+        <div class="section-heading light-heading">
+          <div>
+            <p class="kicker">Authority boundary</p>
+            <h2 id="boundary-title">Transcribe exactly. Shape only the response.</h2>
+          </div>
+          <p>The raw ASR lane records provider segments without applying VoiceMD. The second stage applies <code>executive_brief</code> only when generating the human-facing response.</p>
+        </div>
+
+        <div class="boundary-flow" aria-label="Transcription to response evidence flow">
+          <article class="boundary-card" id="transcription-run"></article>
+          <div class="flow-arrow" aria-hidden="true"><span>then</span></div>
+          <article class="boundary-card featured" id="showcase-run"></article>
+        </div>
+
+        <div class="boundary-warning">
+          <span aria-hidden="true">!</span>
+          <p><strong>Input provenance limit.</strong> The decoded PCM input is bound by SHA-256 and byte count, but the input WAV is not published in this snapshot. This site alone cannot replay the transcription call.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="proof" aria-labelledby="proof-title">
+      <div class="section-heading">
+        <div>
+          <p class="kicker">Evidence boundary</p>
+          <h2 id="proof-title">What this snapshot proves</h2>
+        </div>
+        <p>Every transcript, audio file, event trace, resolved contract, and manifest below is a repo-hosted artifact covered by the committed checksum inventory.</p>
+      </div>
+
+      <div class="claims-grid">
+        <article class="claim positive">
+          <p class="claim-number">01</p>
+          <h3>Supported</h3>
+          <ul>
+            <li>Eleven evidence bundles meet local hash and manifest verification.</li>
+            <li>The matrix used one prompt, scenario, endpoint fingerprint, and acoustic voice.</li>
+            <li>Exact captured transcripts and generated audio are available for inspection.</li>
+            <li>Every deterministic contract outcome remains visible.</li>
+          </ul>
+        </article>
+        <article class="claim caution">
+          <p class="claim-number">02</p>
+          <h3>Not supported</h3>
+          <ul>
+            <li>These deployment names do not identify fixed model snapshots.</li>
+            <li>Client-observed timings are not performance benchmarks or an SLA.</li>
+            <li>The files are not a provider-signed attestation.</li>
+            <li>This single synthetic scenario does not establish general response quality.</li>
+          </ul>
+        </article>
+        <article class="claim neutral">
+          <p class="claim-number">03</p>
+          <h3>Reproducible locally</h3>
+          <p>Verify the closed inventory without Azure credentials or network access:</p>
+          <pre><code>python3 scripts/verify_pages.py site</code></pre>
+          <div class="proof-links">
+            <a href="./proof/azure-2026-08-24/proof-index.json">Proof index</a>
+            <a href="./proof/azure-2026-08-24/SHA256SUMS">SHA256SUMS</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="use-section" id="use" aria-labelledby="use-title">
+      <div class="shell use-card">
+        <div class="use-copy">
+          <p class="kicker">Use VoiceMD</p>
+          <h2 id="use-title">The proof is one application of the standard.</h2>
+          <p>The core CLI validates local <code>VOICE.md</code> files. Azure voice support is an optional extra; publishing the package remains a separate release step from this proof snapshot.</p>
+          <div class="project-links" aria-label="Project links">
+            <a href="https://github.com/forcewake/voicemd-agent-standard#readme">GitHub README</a>
+            <a href="https://github.com/forcewake/voicemd-agent-standard/blob/main/SPECIFICATION.md">Specification</a>
+            <a href="https://pypi.org/project/voicemd/">PyPI</a>
+          </div>
+        </div>
+        <div class="install-grid">
+          <div>
+            <p>Core contract</p>
+            <pre><code>pip install voicemd
+voicemd init
+voicemd validate</code></pre>
+          </div>
+          <div>
+            <p>Azure Voice proof lab</p>
+            <pre><code>pip install "voicemd[azure-voice]"</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="method shell" aria-labelledby="method-title">
+      <p class="kicker">Method</p>
+      <h2 id="method-title">Read the artifacts, not the headline.</h2>
+      <p>The page loads only local allowlisted files. Transcript text is inserted with DOM <code>textContent</code>; it is never interpreted as HTML. There are no analytics, external scripts, fonts, or live Azure calls.</p>
+      <p class="load-state" id="app-status" role="status" aria-live="polite">Loading recorded proof snapshot…</p>
+      <noscript><p class="load-error">JavaScript is required to render the checked manifests and exact transcript files. The files remain directly available in the proof snapshot.</p></noscript>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-layout">
+      <div>
+        <p class="brand footer-brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span>VoiceMD</span></p>
+        <p>Azure Voice Proof Snapshot · 2026-08-24</p>
+      </div>
+      <p><code>voicemd 0.1.0a3</code> · static evidence, no live credentials</p>
+    </div>
+  </footer>
+</body>
+</html>

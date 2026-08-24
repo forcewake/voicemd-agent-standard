@@ -1,0 +1,1 @@
+Decision: keep the rollout paused. This prevents further impact while the cause is still unconfirmed. Evidence: the service is degraded to eight hundred forty milliseconds at the ninety-fifth percentile, with slow responses for user C and no data loss. Risk: the root cause is unknown, so the exposure remains until investigation finds it.

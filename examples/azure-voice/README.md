@@ -36,20 +36,25 @@ The CLI currently authenticates with an Azure OpenAI API key. Do not put a key
 in source code, a command argument, a committed file, or captured terminal
 output. The hidden `--api-key` argument is deliberately rejected.
 
-The minimum shared configuration is:
+The minimum shared configuration can live in the repository's ignored `.env`
+file, which the CLI loads by default. Keep the file mode at `0600`:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE.openai.azure.com
+AZURE_OPENAI_API_KEY=YOUR-KEY
+```
 
 ```bash
-export AZURE_OPENAI_ENDPOINT='https://YOUR-RESOURCE.openai.azure.com'
-export AZURE_OPENAI_API_KEY='YOUR-KEY'
+chmod 600 .env
 ```
 
 Set deployment names when your Azure deployment names differ from the defaults:
 
-```bash
-export AZURE_OPENAI_AUDIO_DEPLOYMENT='gpt-audio-1.5'
-export AZURE_OPENAI_REALTIME_DEPLOYMENT='gpt-realtime-2.1'
-export AZURE_OPENAI_REALTIME_MINI_DEPLOYMENT='gpt-realtime-2.1-mini'
-export AZURE_OPENAI_TRANSCRIBE_DEPLOYMENT='gpt-live-transcribe'
+```dotenv
+AZURE_OPENAI_AUDIO_DEPLOYMENT=gpt-audio-1.5
+AZURE_OPENAI_REALTIME_DEPLOYMENT=gpt-realtime-2.1
+AZURE_OPENAI_REALTIME_MINI_DEPLOYMENT=gpt-realtime-2.1-mini
+AZURE_OPENAI_TRANSCRIBE_DEPLOYMENT=gpt-live-transcribe
 ```
 
 The deployment defaults are the four values shown above. An explicit

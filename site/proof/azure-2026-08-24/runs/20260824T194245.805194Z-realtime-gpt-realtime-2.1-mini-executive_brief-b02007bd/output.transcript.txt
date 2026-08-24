@@ -1,0 +1,1 @@
+Decision: keep the rollout paused until the cause is confirmed. The evidence shows degraded service with ninety-fifth percentile latency at 840 milliseconds, and no data loss reported. The unresolved risk is an unknown root cause; resuming could bring a repeat failure. Owner and deadline are not provided.

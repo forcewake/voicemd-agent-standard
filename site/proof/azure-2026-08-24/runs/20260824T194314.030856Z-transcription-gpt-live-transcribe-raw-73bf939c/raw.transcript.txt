@@ -1,0 +1,1 @@
+Status: the service is degraded, eight hundred forty milliseconds. At the ninety-fifth percentile with no confirmed cause Impact user C slow responses but no Data loss. The next action is to keep the rollout Paused an investigate the root cause, keep the rollout. paused.

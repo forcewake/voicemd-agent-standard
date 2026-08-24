@@ -154,6 +154,58 @@ jobs:
             release/VERIFICATION.md
           if-no-files-found: error
 
+  github-release-assets:
+    if: github.event_name == 'release' && github.ref_type == 'tag'
+    needs: build-and-attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified Python distributions
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: python-distributions
+          path: release-assets/distributions
+      - name: Download deterministic release metadata
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: release-metadata
+          path: release-assets/metadata
+      - name: Attach verified artifacts to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t assets < <(find release-assets -type f -print | LC_ALL=C sort)
+          test "${#assets[@]}" -eq 7
+          test "$(find release-assets/distributions -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')" = "1"
+          test "$(find release-assets/distributions -maxdepth 1 -type f -name '*.tar.gz' | wc -l | tr -d ' ')" = "1"
+          for name in BUILD_INFO.json PROVENANCE.intoto.jsonl SBOM.spdx.json SHA256SUMS VERIFICATION.md; do
+            test -f "release-assets/metadata/$name"
+          done
+
+          mapfile -t existing_assets < <(
+            gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json assets \
+              --jq '.assets[].name'
+          )
+          for asset in "${assets[@]}"; do
+            name="${asset##*/}"
+            for existing in "${existing_assets[@]}"; do
+              if [[ "$name" == "$existing" ]]; then
+                echo "Refusing to overwrite existing GitHub Release asset: $name" >&2
+                exit 1
+              fi
+            done
+          done
+
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY"
+
   publish:
     if: github.ref_type == 'tag'
     needs: build-and-attest

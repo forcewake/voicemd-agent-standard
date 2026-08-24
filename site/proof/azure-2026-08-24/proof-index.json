@@ -1,0 +1,229 @@
+{
+  "$schema": "urn:voicemd:pages-proof-index:1",
+  "schema_version": 1,
+  "snapshot_id": "azure-2026-08-24",
+  "captured_date": "2026-08-24",
+  "provider": "azure-openai",
+  "voicemd_version": "0.1.0a3",
+  "inventory": {
+    "checksums": "SHA256SUMS",
+    "run_count": 11,
+    "run_file_count": 116,
+    "run_bytes": 12233657,
+    "checksummed_file_count": 117
+  },
+  "matrix": {
+    "scenario_id": "degraded-service-en",
+    "contracts": [
+      "incident_commander",
+      "calm_support",
+      "executive_brief"
+    ],
+    "columns": [
+      {
+        "lane": "audio-completion",
+        "deployment": "gpt-audio-1.5",
+        "label": "Audio completion"
+      },
+      {
+        "lane": "realtime",
+        "deployment": "gpt-realtime-2.1",
+        "label": "Realtime"
+      },
+      {
+        "lane": "realtime",
+        "deployment": "gpt-realtime-2.1-mini",
+        "label": "Realtime mini"
+      }
+    ],
+    "controls": {
+      "acoustic_voice": "alloy",
+      "prompt_sha256": "93e28a873dab4fc9f0e70de2431316e34a2537b1876c7846e6d07bf912d71e35",
+      "scenario_sha256": "7a5611cd0e21f5a45f4f63ac339d1c3d61b73dcc88c4e07c228fb5b788e9064c",
+      "endpoint_sha256": "e205294e8755ccefccd9b9ca81aecf3050fceca2af329be5b1895ea05dcc70cc"
+    },
+    "expected_results": {
+      "total": 9,
+      "passed": 5,
+      "failed": 4
+    }
+  },
+  "transcription_boundary": {
+    "input_audio_published": false,
+    "input_audio_bytes": 758400,
+    "input_audio_sha256": "fd9774bc0b6cdeb2d8cfd5e6b5bfd8364ec179f6966e2e8f9765d5a08e15482a",
+    "raw_transcript_sha256": "f3a4cb6ea4194925410fa6aa116ed860833d3d1a550734a94da641fbf82dc7c8",
+    "statement": "The decoded PCM input is identified by hash and byte count, but the input WAV is not part of this public snapshot. The raw transcription cannot be replayed from this site alone."
+  },
+  "featured_audio": [
+    {
+      "path": "audio/incident-commander.wav",
+      "source_run_id": "20260824T194204.308057Z-realtime-gpt-realtime-2.1-incident_commander-6a90db07",
+      "sha256": "89dd63f0aed0e2092d3ca8e785e01bcdd5faef209ea030a18cab23ea30a2b212"
+    },
+    {
+      "path": "audio/calm-support.wav",
+      "source_run_id": "20260824T194223.718529Z-realtime-gpt-realtime-2.1-calm_support-93fda5ca",
+      "sha256": "e1b39d7e88dfcae7e225ed8ced877a10cb50a6754703be4ca609cd2b386b0d1f"
+    },
+    {
+      "path": "audio/executive-brief.wav",
+      "source_run_id": "20260824T194241.914739Z-realtime-gpt-realtime-2.1-executive_brief-cb7442f4",
+      "sha256": "5f2616555d12f00441553ccb169559dbb964a6112a4ef7693135ce71d5172881"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "20260824T194157.533898Z-audio-completion-gpt-audio-1.5-incident_commander-6e683a5e",
+      "kind": "matrix",
+      "contract": "incident_commander",
+      "lane": "audio-completion",
+      "deployment": "gpt-audio-1.5",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194157.533898Z-audio-completion-gpt-audio-1.5-incident_commander-6e683a5e/manifest.json",
+      "transcript": "runs/20260824T194157.533898Z-audio-completion-gpt-audio-1.5-incident_commander-6e683a5e/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194157.533898Z-audio-completion-gpt-audio-1.5-incident_commander-6e683a5e/output.wav"
+    },
+    {
+      "run_id": "20260824T194204.308057Z-realtime-gpt-realtime-2.1-incident_commander-6a90db07",
+      "kind": "matrix",
+      "contract": "incident_commander",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194204.308057Z-realtime-gpt-realtime-2.1-incident_commander-6a90db07/manifest.json",
+      "transcript": "runs/20260824T194204.308057Z-realtime-gpt-realtime-2.1-incident_commander-6a90db07/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194204.308057Z-realtime-gpt-realtime-2.1-incident_commander-6a90db07/output.wav"
+    },
+    {
+      "run_id": "20260824T194209.980765Z-realtime-gpt-realtime-2.1-mini-incident_commander-b1d59f5e",
+      "kind": "matrix",
+      "contract": "incident_commander",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1-mini",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194209.980765Z-realtime-gpt-realtime-2.1-mini-incident_commander-b1d59f5e/manifest.json",
+      "transcript": "runs/20260824T194209.980765Z-realtime-gpt-realtime-2.1-mini-incident_commander-b1d59f5e/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194209.980765Z-realtime-gpt-realtime-2.1-mini-incident_commander-b1d59f5e/output.wav"
+    },
+    {
+      "run_id": "20260824T194216.327146Z-audio-completion-gpt-audio-1.5-calm_support-846e36c8",
+      "kind": "matrix",
+      "contract": "calm_support",
+      "lane": "audio-completion",
+      "deployment": "gpt-audio-1.5",
+      "passed": false,
+      "failed_checks": [
+        "contains-any:3"
+      ],
+      "manifest": "runs/20260824T194216.327146Z-audio-completion-gpt-audio-1.5-calm_support-846e36c8/manifest.json",
+      "transcript": "runs/20260824T194216.327146Z-audio-completion-gpt-audio-1.5-calm_support-846e36c8/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194216.327146Z-audio-completion-gpt-audio-1.5-calm_support-846e36c8/output.wav"
+    },
+    {
+      "run_id": "20260824T194223.718529Z-realtime-gpt-realtime-2.1-calm_support-93fda5ca",
+      "kind": "matrix",
+      "contract": "calm_support",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194223.718529Z-realtime-gpt-realtime-2.1-calm_support-93fda5ca/manifest.json",
+      "transcript": "runs/20260824T194223.718529Z-realtime-gpt-realtime-2.1-calm_support-93fda5ca/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194223.718529Z-realtime-gpt-realtime-2.1-calm_support-93fda5ca/output.wav"
+    },
+    {
+      "run_id": "20260824T194229.518482Z-realtime-gpt-realtime-2.1-mini-calm_support-31016aec",
+      "kind": "matrix",
+      "contract": "calm_support",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1-mini",
+      "passed": false,
+      "failed_checks": [
+        "voicemd-lint-clean"
+      ],
+      "manifest": "runs/20260824T194229.518482Z-realtime-gpt-realtime-2.1-mini-calm_support-31016aec/manifest.json",
+      "transcript": "runs/20260824T194229.518482Z-realtime-gpt-realtime-2.1-mini-calm_support-31016aec/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194229.518482Z-realtime-gpt-realtime-2.1-mini-calm_support-31016aec/output.wav"
+    },
+    {
+      "run_id": "20260824T194235.019161Z-audio-completion-gpt-audio-1.5-executive_brief-eb468df0",
+      "kind": "matrix",
+      "contract": "executive_brief",
+      "lane": "audio-completion",
+      "deployment": "gpt-audio-1.5",
+      "passed": false,
+      "failed_checks": [
+        "contains-any:1",
+        "contains-any:3"
+      ],
+      "manifest": "runs/20260824T194235.019161Z-audio-completion-gpt-audio-1.5-executive_brief-eb468df0/manifest.json",
+      "transcript": "runs/20260824T194235.019161Z-audio-completion-gpt-audio-1.5-executive_brief-eb468df0/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194235.019161Z-audio-completion-gpt-audio-1.5-executive_brief-eb468df0/output.wav"
+    },
+    {
+      "run_id": "20260824T194241.914739Z-realtime-gpt-realtime-2.1-executive_brief-cb7442f4",
+      "kind": "matrix",
+      "contract": "executive_brief",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1",
+      "passed": false,
+      "failed_checks": [
+        "voicemd-lint-clean"
+      ],
+      "manifest": "runs/20260824T194241.914739Z-realtime-gpt-realtime-2.1-executive_brief-cb7442f4/manifest.json",
+      "transcript": "runs/20260824T194241.914739Z-realtime-gpt-realtime-2.1-executive_brief-cb7442f4/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194241.914739Z-realtime-gpt-realtime-2.1-executive_brief-cb7442f4/output.wav"
+    },
+    {
+      "run_id": "20260824T194245.805194Z-realtime-gpt-realtime-2.1-mini-executive_brief-b02007bd",
+      "kind": "matrix",
+      "contract": "executive_brief",
+      "lane": "realtime",
+      "deployment": "gpt-realtime-2.1-mini",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194245.805194Z-realtime-gpt-realtime-2.1-mini-executive_brief-b02007bd/manifest.json",
+      "transcript": "runs/20260824T194245.805194Z-realtime-gpt-realtime-2.1-mini-executive_brief-b02007bd/output.transcript.txt",
+      "raw_transcript": null,
+      "audio": "runs/20260824T194245.805194Z-realtime-gpt-realtime-2.1-mini-executive_brief-b02007bd/output.wav"
+    },
+    {
+      "run_id": "20260824T194314.030856Z-transcription-gpt-live-transcribe-raw-73bf939c",
+      "kind": "transcription",
+      "contract": "raw transcript boundary",
+      "lane": "transcription",
+      "deployment": "gpt-live-transcribe",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194314.030856Z-transcription-gpt-live-transcribe-raw-73bf939c/manifest.json",
+      "transcript": "runs/20260824T194314.030856Z-transcription-gpt-live-transcribe-raw-73bf939c/raw.transcript.txt",
+      "raw_transcript": null,
+      "audio": null
+    },
+    {
+      "run_id": "20260824T194341.852993Z-showcase-gpt-realtime-2.1-executive_brief-08187965",
+      "kind": "showcase",
+      "contract": "executive_brief",
+      "lane": "transcribe-to-realtime",
+      "deployment": "gpt-realtime-2.1",
+      "passed": true,
+      "failed_checks": [],
+      "manifest": "runs/20260824T194341.852993Z-showcase-gpt-realtime-2.1-executive_brief-08187965/manifest.json",
+      "transcript": "runs/20260824T194341.852993Z-showcase-gpt-realtime-2.1-executive_brief-08187965/output.transcript.txt",
+      "raw_transcript": "runs/20260824T194341.852993Z-showcase-gpt-realtime-2.1-executive_brief-08187965/raw.transcript.txt",
+      "audio": "runs/20260824T194341.852993Z-showcase-gpt-realtime-2.1-executive_brief-08187965/output.wav"
+    }
+  ]
+}

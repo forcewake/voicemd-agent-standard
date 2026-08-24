@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VoiceMD defines VOICE.md: a portable, bounded, testable communication contract for AI agents.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'none'; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>VoiceMD · VOICE.md Agent Communication Contract</title>
+  <link rel="stylesheet" href="./assets/site.css">
+</head>
+<body class="standard-page">
+  <a class="skip-link" href="#main-content">Skip to standard overview</a>
+
+  <header class="standard-header" id="top">
+    <nav class="nav shell" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="VoiceMD home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>VoiceMD</span>
+      </a>
+      <div class="nav-links standard-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#contract">Contract</a>
+        <a href="#conformance">L0–L3</a>
+        <a href="#ecosystem">Ecosystem</a>
+        <a href="#evidence">Evidence</a>
+        <a class="nav-cta" href="#quick-start">Get started</a>
+      </div>
+    </nav>
+
+    <div class="standard-hero shell">
+      <div class="standard-hero-copy">
+        <p class="eyebrow"><span class="signal" aria-hidden="true"></span> Independent public draft · format 0.1</p>
+        <h1>Control how every agent <span>communicates.</span></h1>
+        <p class="hero-lede"><code>VOICE.md</code> makes observable interaction behavior portable across models, harnesses, applications, audiences, and spoken surfaces.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#quick-start">Create a VOICE.md</a>
+          <a class="button secondary" href="https://github.com/forcewake/voicemd-agent-standard/blob/main/SPECIFICATION.md">Read the specification</a>
+        </div>
+        <ul class="draft-facts" aria-label="Standard status">
+          <li><strong>Draft</strong> 0.1.0-draft.2</li>
+          <li><strong>License</strong> Apache 2.0</li>
+          <li><strong>Runtime</strong> provider-neutral</li>
+        </ul>
+      </div>
+
+      <aside class="contract-window" aria-labelledby="contract-window-title">
+        <div class="window-bar">
+          <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span id="contract-window-title">VOICE.md</span>
+          <span>L2 contextual</span>
+        </div>
+        <pre><code>---
+voice_spec: "0.1"
+kind: VoiceContract
+name: "Direct technical advisor"
+activation:
+  mode: contextual
+identity:
+  sounds_like:
+    - A competent practitioner
+response:
+  opening: Lead with the conclusion.
+authority:
+  may_control: [tone, structure]
+  must_not_control: [facts, safety]
+---</code></pre>
+        <p><span aria-hidden="true">●</span> Human-facing output only</p>
+      </aside>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="section shell" id="purpose" aria-labelledby="purpose-title">
+      <div class="section-heading standard-heading">
+        <div>
+          <p class="kicker">Why another file?</p>
+          <h2 id="purpose-title">Communication behavior is configuration.</h2>
+        </div>
+        <p>System prompts bury voice rules inside provider-specific integration code. VoiceMD makes the contract discoverable, reviewable, compilable, and testable.</p>
+      </div>
+
+      <div class="purpose-grid">
+        <article class="purpose-card">
+          <span>01</span>
+          <h3>Portable</h3>
+          <p>One local contract can compile into plain prompts, compact prompts, JSON, or ASCII-safe runtime instructions.</p>
+        </article>
+        <article class="purpose-card">
+          <span>02</span>
+          <h3>Observable</h3>
+          <p>Specify openings, structure, lexicon, uncertainty, disagreement, formatting, and spoken behavior—not vague personality adjectives.</p>
+        </article>
+        <article class="purpose-card">
+          <span>03</span>
+          <h3>Testable</h3>
+          <p>Deterministic lint rules and inline evaluation cases turn reviewed communication decisions into executable checks.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="authority-section" id="contract" aria-labelledby="authority-title">
+      <div class="shell">
+        <div class="section-heading light-heading standard-heading">
+          <div>
+            <p class="kicker">Hard authority boundary</p>
+            <h2 id="authority-title">Voice shapes expression. Never authority.</h2>
+          </div>
+          <p>A runtime must reject voice instructions that cross this line, even when the contract declares otherwise.</p>
+        </div>
+
+        <div class="authority-panel">
+          <article class="authority-column may-control">
+            <p class="authority-label">VOICE.md may control</p>
+            <ul>
+              <li>Tone and register</li>
+              <li>Vocabulary and formatting</li>
+              <li>Response structure and verbosity</li>
+              <li>Uncertainty and correction behavior</li>
+              <li>Disagreement and clarification</li>
+              <li>Spoken delivery constraints</li>
+            </ul>
+          </article>
+          <div class="authority-divider" aria-hidden="true"><span>boundary</span></div>
+          <article class="authority-column never-control">
+            <p class="authority-label">VOICE.md must never control</p>
+            <ul>
+              <li>Facts or source truth</li>
+              <li>Safety, legal, or compliance policy</li>
+              <li>Permissions or approval requirements</li>
+              <li>Tools, parameters, or side effects</li>
+              <li>Secrets or hidden reasoning</li>
+              <li>Exact quotes or required schemas</li>
+            </ul>
+          </article>
+        </div>
+
+        <p class="precedence-line"><strong>Precedence:</strong> platform policy → system/developer instructions → factual, legal, permission, tool, and schema constraints → user instruction → selected VOICE.md → model defaults.</p>
+      </div>
+    </section>
+
+    <section class="section shell" id="conformance" aria-labelledby="levels-title">
+      <div class="section-heading standard-heading">
+        <div>
+          <p class="kicker">Progressive adoption</p>
+          <h2 id="levels-title">L0 plain to L3 testable.</h2>
+        </div>
+        <p>Teams can begin with Markdown and add structure only when they need deterministic selection, compilation, or validation.</p>
+      </div>
+
+      <ol class="level-grid">
+        <li class="level-card">
+          <span>L0</span>
+          <h3>Plain</h3>
+          <p>A non-empty Markdown contract. No structured parser required.</p>
+        </li>
+        <li class="level-card">
+          <span>L1</span>
+          <h3>Core</h3>
+          <p>Valid structured frontmatter plus concrete communication guidance.</p>
+        </li>
+        <li class="level-card">
+          <span>L2</span>
+          <h3>Contextual</h3>
+          <p>Activation, authority, audience, surface, tone, speech, or hierarchy.</p>
+        </li>
+        <li class="level-card highlighted">
+          <span>L3</span>
+          <h3>Testable</h3>
+          <p>At least one effective deterministic rule or executable inline test.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="mechanics-section" aria-labelledby="mechanics-title">
+      <div class="shell">
+        <div class="section-heading standard-heading">
+          <div>
+            <p class="kicker">Deterministic resolution</p>
+            <h2 id="mechanics-title">Discover. Resolve. Select.</h2>
+          </div>
+          <p>The reference algorithm keeps project-wide defaults and local specialization predictable without remote prompt fetching.</p>
+        </div>
+
+        <div class="mechanics-layout">
+          <div class="source-stack" aria-label="VOICE.md discovery hierarchy">
+            <div><span>01</span><code>~/.config/voicemd/VOICE.md</code><small>optional global source</small></div>
+            <i aria-hidden="true"></i>
+            <div><span>02</span><code>/repo/VOICE.md</code><small>project contract</small></div>
+            <i aria-hidden="true"></i>
+            <div><span>03</span><code>/repo/service/VOICE.override.md</code><small>nearest source wins</small></div>
+            <i aria-hidden="true"></i>
+            <div class="selected-source"><span>04</span><code>selected contract</code><small>profile + audience + surface + tone</small></div>
+          </div>
+
+          <div class="mechanic-cards">
+            <article>
+              <p>Discovery</p>
+              <h3>Broad to specific</h3>
+              <span>Select at most one candidate per directory. A nearer source has higher precedence.</span>
+            </article>
+            <article>
+              <p>Inheritance</p>
+              <h3>Local <code>extends</code></h3>
+              <span>Resolve reviewed local paths first, detect cycles, enforce roots and resource limits.</span>
+            </article>
+            <article>
+              <p>Merge</p>
+              <h3>Explicit semantics</h3>
+              <span>Scalars replace, objects deep-merge, defined source-level lists append unique, and rules merge by ID.</span>
+            </article>
+            <article>
+              <p>Activation</p>
+              <h3>Output-aware</h3>
+              <span>Apply to human-facing language; preserve code, raw data, exact quotes, and required schemas.</span>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="quick-start" aria-labelledby="quick-title">
+      <div class="quick-layout">
+        <div class="quick-copy">
+          <p class="kicker">Reference implementation</p>
+          <h2 id="quick-title">From file to checked runtime contract.</h2>
+          <p>The CLI discovers hierarchy, validates conformance, compiles runtime instructions, lints output, runs inline tests, and installs managed adapters.</p>
+          <div class="project-links">
+            <a href="https://github.com/forcewake/voicemd-agent-standard#readme">GitHub README</a>
+            <a href="https://github.com/forcewake/voicemd-agent-standard/blob/main/SPECIFICATION.md">Normative spec</a>
+            <a href="https://pypi.org/project/voicemd/">PyPI release page</a>
+          </div>
+          <p class="release-note">Package publication is a separate release gate from this static site.</p>
+        </div>
+        <div class="terminal-card" aria-label="VoiceMD quick start commands">
+          <div class="terminal-bar"><span aria-hidden="true">● ● ●</span><span>quick-start</span></div>
+          <pre><code><span>$</span> pip install voicemd
+
+<span>$</span> voicemd init
+<span>$</span> voicemd validate --strict
+<span>$</span> voicemd compile --compact
+<span>$</span> voicemd test
+
+<span># optional Azure Voice proof lab</span>
+<span>$</span> pip install "voicemd[azure-voice]"</code></pre>
+        </div>
+      </div>
+
+      <div class="command-grid" aria-label="VoiceMD CLI commands">
+        <code>init</code><code>discover</code><code>validate</code><code>compile</code><code>lint</code>
+        <code>test</code><code>install</code><code>uninstall</code><code>doctor</code><code>serve</code>
+      </div>
+    </section>
+
+    <section class="ecosystem-section" id="ecosystem" aria-labelledby="ecosystem-title">
+      <div class="shell ecosystem-layout">
+        <div class="ecosystem-copy">
+          <p class="kicker">Compatibility layer</p>
+          <h2 id="ecosystem-title">Use existing extension mechanisms.</h2>
+          <p>VoiceMD does not claim native vendor adoption of the filename. Managed adapters map the contract into official instruction and Agent Skills surfaces.</p>
+        </div>
+        <div class="ecosystem-groups">
+          <div>
+            <h3>Coding agents</h3>
+            <div class="chip-cloud">
+              <span>Codex</span><span>Claude Code</span><span>Gemini CLI</span><span>Cursor</span><span>Copilot</span><span>Cline</span><span>Windsurf</span><span>OpenCode</span><span>Aider</span><span>Agent Skills</span>
+            </div>
+          </div>
+          <div>
+            <h3>Applications and runtimes</h3>
+            <div class="chip-cloud muted-chips">
+              <span>Python</span><span>TypeScript</span><span>.NET</span><span>HTTP/OpenAPI</span><span>MCP</span><span>Docker</span><span>Kubernetes</span><span>Transformers</span><span>vLLM</span><span>Ollama</span><span>llama.cpp</span><span>Nemotron VoiceChat</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="examples" aria-labelledby="examples-title">
+      <div class="section-heading standard-heading">
+        <div>
+          <p class="kicker">One scenario, three contracts</p>
+          <h2 id="examples-title">Observable behavior, not adjectives.</h2>
+        </div>
+        <p>These exact L3 fixtures encode the expected contrast for the same incident facts. They are executable contract examples, not provider output or a model ranking.</p>
+      </div>
+
+      <div class="example-grid">
+        <article class="example-card incident-example">
+          <div class="example-head">
+            <div><p>Operational</p><h3><code>incident_commander</code></h3></div>
+            <span>L3 fixture</span>
+          </div>
+          <blockquote>The service is degraded. No data loss is reported. The ninety-fifth percentile latency is 840 milliseconds. Keep the rollout paused while we verify the cause.</blockquote>
+          <p class="example-trait">Status → evidence → immediate action</p>
+        </article>
+
+        <article class="example-card support-example">
+          <div class="example-head">
+            <div><p>Support</p><h3><code>calm_support</code></h3></div>
+            <span>L3 fixture</span>
+          </div>
+          <blockquote>I know this disruption is frustrating. The service is degraded, with 840-millisecond latency, but no data loss is reported. Please keep the rollout paused while the team investigates the unconfirmed cause.</blockquote>
+          <p class="example-trait">Acknowledge impact → verified state → manageable next step</p>
+        </article>
+
+        <article class="example-card executive-example">
+          <div class="example-head">
+            <div><p>Executive</p><h3><code>executive_brief</code></h3></div>
+            <span>L3 fixture</span>
+          </div>
+          <blockquote>Decision: keep the rollout paused. The service is degraded, with 840-millisecond latency and no reported data loss. The cause is unconfirmed, so resuming now creates avoidable operational risk.</blockquote>
+          <p class="example-trait">Decision → material evidence → unresolved risk</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="proof-teaser" id="evidence" aria-labelledby="evidence-title">
+      <div class="shell proof-teaser-layout">
+        <div>
+          <p class="kicker">Recorded implementation evidence</p>
+          <h2 id="evidence-title">Inspect the bytes behind the Azure example.</h2>
+          <p>Eleven checksum-bound bundles include exact transcripts, playable audio, resolved contracts, event traces, manifests, and a closed SHA-256 inventory.</p>
+          <a class="button primary" href="./azure-proof.html">Open Azure proof</a>
+        </div>
+        <dl class="proof-teaser-stats">
+          <div><dt>11</dt><dd>verified bundles</dd></div>
+          <div><dt>9</dt><dd>controlled matrix cells</dd></div>
+          <div><dt>0</dt><dd>live credentials</dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-layout">
+      <div>
+        <p class="brand footer-brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span>VoiceMD</span></p>
+        <p>VOICE.md Agent Communication Contract · independent public draft</p>
+      </div>
+      <p><a href="https://github.com/forcewake/voicemd-agent-standard#readme">Repository</a> · <a href="https://github.com/forcewake/voicemd-agent-standard/blob/main/SPECIFICATION.md">Specification</a> · <a href="https://pypi.org/project/voicemd/">PyPI</a></p>
+    </div>
+  </footer>
+</body>
+</html>

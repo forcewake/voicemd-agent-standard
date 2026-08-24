@@ -1,12 +1,15 @@
 {
   "project": "VoiceMD",
   "specification": "VOICE.md Agent Communication Contract",
-  "release": "0.1.0-draft.2",
+  "specification_version": "0.1.0-draft.2",
   "format_version": "0.1",
   "status": "independent-draft",
   "date": "2026-08-24",
   "canonical_file": "VOICE.md",
   "schema": "schema/voice.schema.json",
+  "canonical_repository": "https://github.com/forcewake/voicemd-agent-standard",
+  "documentation": "https://forcewake.github.io/voicemd-agent-standard/",
+  "schema_url": "https://raw.githubusercontent.com/forcewake/voicemd-agent-standard/v0.1.0a3/schema/voice.schema.json",
   "reference_implementation": {
     "language": "Python",
     "package": "voicemd",

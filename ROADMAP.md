@@ -5,7 +5,7 @@
 - Collect at least ten independent real-world contracts across software, enterprise support, consumer assistants, and voice agents.
 - Run the language-neutral conformance vectors against at least one implementation maintained outside this repository.
 - Validate the bundled activation, exact-output, translation, and tool-result corpus across independent model/harness deployments.
-- Publish a canonical repository remote and stable canonical schema URL.
+- Stabilize schema hosting beyond the initial version-pinned GitHub URL.
 - Obtain and publish an independent security review.
 - Add publisher-signed release artifacts and hosted provenance attestations; the local build already emits an unsigned provenance statement and SPDX SBOM.
 - Add signed remote bundle design without enabling implicit remote fetches.

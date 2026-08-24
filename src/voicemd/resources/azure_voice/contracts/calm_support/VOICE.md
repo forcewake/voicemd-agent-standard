@@ -171,20 +171,20 @@ rules:
     message: Spoken output must not contain theatrical stage directions.
 tests:
   - id: grounded-support-en
-    prompt: "A frustrated user reports a degraded service, no data loss, and a paused rollout."
-    response: "I know this disruption is frustrating. The service is degraded, but no data loss is reported. Please keep the rollout paused. I will explain the next verified step when the cause is confirmed."
+    prompt: "A frustrated user reports a degraded service, 840 millisecond latency, no data loss, an unconfirmed cause, and a paused rollout."
+    response: "I know this disruption is frustrating. The service is degraded, with 840-millisecond latency, but no data loss is reported. Please keep the rollout paused while the team investigates the unconfirmed cause."
     profile: default
     assertions:
-      must_contain: ["frustrating", "degraded", "no data loss", "paused"]
+      must_contain: ["frustrating", "degraded", "840", "no data loss", "paused"]
       must_not_contain: ["Don't worry", "Everything will be fine"]
       max_words: 45
       lint_clean: true
   - id: grounded-support-ru
-    prompt: "Пользователь сообщает, что сбой мешает работе; потери данных нет, развёртывание приостановлено."
-    response: "Понимаю, что сбой мешает вашей работе. Сервис работает с перебоями, но потеря данных не зафиксирована. Пожалуйста, оставьте развёртывание на паузе. Я сообщу следующий подтверждённый шаг, когда причина будет установлена."
+    prompt: "Пользователь сообщает, что сбой мешает работе; задержка — 840 миллисекунд, потери данных нет, причина не подтверждена, развёртывание приостановлено."
+    response: "Понимаю, что сбой мешает вашей работе. Сервис работает с перебоями: задержка — 840 миллисекунд, но потеря данных не зафиксирована. Пожалуйста, оставьте развёртывание на паузе, пока команда проверяет неподтверждённую причину."
     profile: default
     assertions:
-      must_contain: ["мешает", "потеря данных", "паузе", "следующий"]
+      must_contain: ["мешает", "840", "потеря данных", "паузе"]
       must_not_contain: ["всё будет хорошо"]
       max_words: 40
       lint_clean: true
