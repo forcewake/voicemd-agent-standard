@@ -1,26 +1,21 @@
-# Historical verification record — 2026-08-24
+# Verification record — 2026-08-24
 
-This record applies only to the stale `0.1.0a1` artifacts and does not verify the current source tree.
+Package `0.1.0a2` was built from source revision `fc7adad1b5a7ea5cb17b7ed7349256c5f858ea9c`. `BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash. The embedded provenance is unsigned; the public release workflow is responsible for platform attestation of the exact committed bytes.
 
-Package `0.1.0a1` was built from a fresh local clone of source revision `f58043470422a27c4b15eab1d3506cfd2283cb68`. `release/BUILD_INFO.json` binds the artifacts to that revision and to the complete non-release source snapshot hash.
-
-- [x] 119 unit and regression tests passed from the source tree and from a clean sdist installation.
-- [x] Branch-aware coverage was 78%, above the configured 75% gate.
+- [x] 297 unit and regression tests passed on Python 3.12.7, 3.13.12, and 3.14.5.
+- [x] Branch-aware coverage was 83%, above the configured 75% gate.
+- [x] Ruff passed with no findings.
 - [x] Root `VOICE.md`, full template, and spoken template passed strict L3 validation.
 - [x] All 13 contract example/template files passed their applicable L0-L3 validation profile.
-- [x] Wheel and sdist contents matched current package and release source files byte-for-byte.
-- [x] Wheel installed in a clean Python 3.13 environment; `pip check`, version, strict validation, and CLI compilation passed.
-- [x] Source distribution installed in a separate clean Python 3.13 environment; `pip check` and the complete test suite passed.
-- [x] Packaged schema, templates, and Agent Skill were present and synchronized.
-- [x] Shared adapter ownership, hash health, mode transitions, rollback, and non-destructive uninstall were regression-tested.
-- [x] Explicit-only metadata was tested for supported harnesses; Aider limitations are documented.
-- [x] HTTP sidecar startup validation, health, generic errors, body limits, worker bounds, timeouts, and source provenance were tested.
-- [x] Nemotron profile compiled to ASCII within the 5,000-character budget from the installed wheel.
 - [x] Python, Node.js, and shell lite loaders produced equivalent output.
-- [x] TypeScript passed strict `tsc --noEmit`; .NET 8 built with zero warnings and errors.
-- [x] JSON, JSONL, OpenAPI, GitHub Actions, Docker Compose, Kubernetes YAML, CFF, and local Markdown links parsed successfully.
-- [x] Azure OpenAI transport completed with provider-returned model/finish metadata and no secret fields; the complete 14-case deterministic regression score passed.
-- [x] Same-deployment Azure model judging was exercised only as a plumbing smoke test and is not claimed as independent quality evidence.
-- [x] Release artifact SHA-256 checksums were regenerated and recorded in both `SHA256SUMS` and `BUILD_INFO.json`.
+- [x] Independent TypeScript core verification passed all 57 conformance vectors; strict TypeScript compilation passed.
+- [x] `npm audit` reported zero vulnerabilities; .NET 8 built with zero warnings and zero errors.
+- [x] A real Azure OpenAI run completed all 14 eval cases; deterministic scoring passed 14/14 and the committed records are bound to contract, corpus, request, and response hashes without endpoint or secret fields.
+- [x] Wheel and normalized sdist were built twice with the exact pinned toolchain and were byte-identical across both builds.
+- [x] Twine metadata checks passed; wheel `RECORD`, package contents, and sdist inventory were verified exactly.
+- [x] SPDX 2.3 SBOM and unsigned in-toto/SLSA provenance were generated deterministically and verified against the two distributions.
+- [x] JSON, JSONL, YAML, TOML, OpenAPI, GitHub Actions, Docker Compose, Kubernetes YAML, CFF, and local Markdown-link checks passed.
+- [x] Source containment, symlink and `extends` handling, YAML resource limits, selector tombstones, sidecar limits, release archive limits, and evaluation provenance have regression coverage.
+- [x] Nemotron compilation is ASCII-only, preserves higher-priority application instructions, and stays within the total 5,000-character instruction budget.
 
-Not locally verified: Docker image execution and hosted GitHub Actions, because Docker is not installed here and no remote is configured. These remain external release gates before public publication or tagging.
+Not locally verified: Python 3.10 and 3.11; Docker image execution; Linux and Windows hosted CI; GitHub artifact attestation; PyPI trusted publication; an independent security review; external implementations; vendor or standards-body adoption. No public remote or canonical schema URL is configured in this checkout. These are external gates, not properties proven by this local build.
