@@ -1,0 +1,15 @@
+services:
+  voicemd:
+    build:
+      context: ../..
+      dockerfile: integrations/docker/Dockerfile
+    command: ["serve", "--host", "0.0.0.0", "--port", "8765", "--path", "/contracts/VOICE.md", "--no-global"]
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ../../VOICE.md:/contracts/VOICE.md:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,23 @@
+{
+  "project": "VoiceMD",
+  "specification_version": "0.1.0-draft.1",
+  "package_version": "0.1.0a1",
+  "built_at": "2026-08-24",
+  "python": "3.13.5",
+  "tests_passed": 30,
+  "artifacts": {
+    "voicemd-0.1.0a1-py3-none-any.whl": {"sha256": "5674e7fde764e293b68452328b75f88a3616af6620468f38b63aa5a4b72588b1"},
+    "voicemd-0.1.0a1.tar.gz": {"sha256": "bd6fce9729dcb2b50f9cb9b0187f2d50429a7a09b5665376902027676e494eb1"}
+  },
+  "verification": [
+    "strict L3 validation",
+    "unit and regression suite",
+    "clean wheel install",
+    "clean source-distribution test run",
+    "HTTP sidecar smoke test",
+    "Python, Node.js, and shell lite-loader equivalence",
+    "Nemotron ASCII compilation",
+    "adapter install and shared-owner uninstall",
+    "JSON, JSONL, YAML, OpenAPI, and local Markdown-link parsing"
+  ]
+}

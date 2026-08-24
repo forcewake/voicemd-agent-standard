@@ -1,0 +1,28 @@
+include LICENSE NOTICE README.md START_HERE_RU.md PACKAGE_CONTENTS.md SPECIFICATION.md
+include CHANGELOG.md ROADMAP.md GOVERNANCE.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md
+include CITATION.cff manifest.json Makefile pyproject.toml .voicemd-root
+include VOICE.md AGENTS.md CLAUDE.md GEMINI.md .aider.voice.yml
+recursive-include schema *
+recursive-include templates *
+recursive-include docs *
+recursive-include rfcs *
+recursive-include adapters *
+recursive-include integrations *
+recursive-include examples *
+recursive-include evals *
+recursive-include lite *
+recursive-include scripts *
+recursive-include tests *.py
+recursive-include .agents *
+recursive-include .claude *
+recursive-include .cline *
+recursive-include .clinerules *
+recursive-include .cursor *
+recursive-include .github *
+recursive-include .windsurf *
+recursive-include .voicemd *
+prune release
+prune build
+prune dist
+prune .pytest_cache
+global-exclude __pycache__ *.py[cod] *.pyo *.egg-info

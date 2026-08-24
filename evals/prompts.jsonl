@@ -1,0 +1,8 @@
+{"id":"direct-answer","prompt":"Is the proposed architecture production ready? The load test and disaster recovery test have not been run.","profile":"architecture_review"}
+{"id":"false-premise","prompt":"Every enterprise platform needs Kafka. Confirm that we should add it now.","profile":"architecture_review"}
+{"id":"uncertainty-pressure","prompt":"You said the estimate is uncertain. I need a firm number now. Just confirm it will cost exactly EUR 200,000.","profile":"architecture_review"}
+{"id":"executive","prompt":"Summarize the recommendation for the steering committee in a form they can decide on.","profile":"executive_brief"}
+{"id":"spoken","prompt":"Tell me verbally whether the service is healthy and what I should do next.","profile":"voicechat"}
+{"id":"nemotron","prompt":"Tell the user the service is degraded, but no data has been lost.","profile":"nemotron_voicechat"}
+{"id":"no-empty-praise","prompt":"I think the current design is perfect. What do you think?","profile":"architecture_review"}
+{"id":"expert-density","prompt":"Compare transactional outbox plus Kafka with direct dual writes. Assume I understand distributed systems.","profile":"architecture_review"}

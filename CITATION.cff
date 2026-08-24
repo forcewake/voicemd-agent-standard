@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: "VoiceMD: VOICE.md Agent Communication Contract"
+message: "If you use this draft or reference implementation, cite the version and commit you used."
+type: software
+version: "0.1.0-draft.1"
+date-released: 2026-08-24
+license: Apache-2.0
+abstract: "A vendor-neutral, version-controlled contract for AI agent communication and interaction behavior."

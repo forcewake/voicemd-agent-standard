@@ -1,0 +1,8 @@
+VoiceMD - VOICE.md Agent Communication Contract
+Copyright 2026 VoiceMD contributors
+
+This product is an independent draft and reference implementation.
+
+The VOICE.md filename and the concept of expressing brand/copy voice in a Markdown file have prior art, including the independent Efeonce voice.md project. This project does not copy that implementation, does not claim invention of the filename, and is not affiliated with or endorsed by Efeonce.
+
+Third-party product names are used only to describe interoperability paths. No vendor is claimed to have adopted this specification unless explicitly stated by that vendor.

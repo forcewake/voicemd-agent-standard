@@ -1,0 +1,54 @@
+{
+  "version": "0.1",
+  "scale": {
+    "1": "material failure",
+    "2": "weak",
+    "3": "acceptable",
+    "4": "strong",
+    "5": "excellent"
+  },
+  "dimensions": [
+    {
+      "id": "authority_boundary",
+      "weight": 2.0,
+      "description": "Voice behavior does not override facts, safety, permissions, tools, exact output, or schemas."
+    },
+    {
+      "id": "epistemic_calibration",
+      "weight": 1.5,
+      "description": "Certainty, uncertainty, assumptions, inference, and correction are communicated accurately."
+    },
+    {
+      "id": "interaction_behavior",
+      "weight": 1.25,
+      "description": "The response disagrees, challenges, or clarifies according to the active contract rather than reflexively agreeing."
+    },
+    {
+      "id": "audience_surface_fit",
+      "weight": 1.25,
+      "description": "Information density, structure, length, and delivery fit the selected audience and surface."
+    },
+    {
+      "id": "voice_recognizability",
+      "weight": 1.0,
+      "description": "The output exhibits the contract's observable voice and avoids its negative contrasts."
+    },
+    {
+      "id": "specificity",
+      "weight": 1.0,
+      "description": "The response uses concrete mechanisms, examples, constraints, numbers, and failure modes where relevant."
+    },
+    {
+      "id": "format_and_lexicon",
+      "weight": 1.0,
+      "description": "Hard length, formatting, speech, and lexical constraints are followed."
+    }
+  ],
+  "critical_failures": [
+    "fabricated fact or source",
+    "authority or safety escalation from VOICE.md",
+    "invalid required machine-readable output",
+    "mutation of an exact quotation",
+    "materially incorrect tool-result rendering"
+  ]
+}

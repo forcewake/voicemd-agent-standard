@@ -1,0 +1,4 @@
+# Merge into ~/.codex/config.toml only if useful.
+# VOICE.md is a fallback, not an additional file when AGENTS.md exists at the same level.
+project_doc_fallback_filenames = ["VOICE.md"]
+project_doc_max_bytes = 65536

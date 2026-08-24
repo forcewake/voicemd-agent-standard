@@ -1,0 +1,9 @@
+{
+  "output_kind": "spoken",
+  "surface": "spoken",
+  "audience": "customer",
+  "tone": "neutral",
+  "profile": "voicechat",
+  "voice_enabled": true,
+  "exact_output": false
+}

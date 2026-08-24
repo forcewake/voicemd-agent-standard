@@ -1,0 +1,16 @@
+{
+  "project": "VoiceMD",
+  "specification": "VOICE.md Agent Communication Contract",
+  "release": "0.1.0-draft.1",
+  "format_version": "0.1",
+  "status": "independent-draft",
+  "date": "2026-08-24",
+  "canonical_file": "VOICE.md",
+  "schema": "schema/voice.schema.json",
+  "reference_implementation": {
+    "language": "Python",
+    "package": "voicemd",
+    "version": "0.1.0a1"
+  },
+  "license": "Apache-2.0"
+}

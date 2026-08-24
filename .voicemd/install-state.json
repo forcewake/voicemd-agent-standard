@@ -1,0 +1,36 @@
+{
+  "managed_by": "VoiceMD",
+  "targets": {
+    "aider": {
+      "mode": "auto"
+    },
+    "claude": {
+      "mode": "auto"
+    },
+    "cline": {
+      "mode": "auto"
+    },
+    "codex": {
+      "mode": "auto"
+    },
+    "copilot": {
+      "mode": "auto"
+    },
+    "cursor": {
+      "mode": "auto"
+    },
+    "gemini": {
+      "mode": "auto"
+    },
+    "opencode": {
+      "mode": "auto"
+    },
+    "universal": {
+      "mode": "auto"
+    },
+    "windsurf": {
+      "mode": "auto"
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: voicemd-contract
+data:
+  VOICE.md: |
+    # Replace with a reviewed, versioned contract or mount one from your delivery system.
+    # VOICE.md
+    # Sounds like: direct, calm, specific.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-agent-with-voicemd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-agent-with-voicemd
+  template:
+    metadata:
+      labels:
+        app: example-agent-with-voicemd
+    spec:
+      containers:
+        - name: application
+          image: example/application:replace-me
+          env:
+            - name: VOICEMD_URL
+              value: http://127.0.0.1:8765
+        - name: voicemd
+          image: example/voicemd:0.1.0a1
+          args: ["serve", "--host", "127.0.0.1", "--port", "8765", "--path", "/contracts/VOICE.md", "--no-global", "--quiet"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: contract
+              mountPath: /contracts
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8765
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: contract
+          configMap:
+            name: voicemd-contract

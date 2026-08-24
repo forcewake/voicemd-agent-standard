@@ -1,0 +1,7 @@
+FROM __BASE_MODEL__
+
+SYSTEM """
+__VOICE_PROMPT__
+"""
+
+PARAMETER temperature 0.2

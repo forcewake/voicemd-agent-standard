@@ -1,0 +1,100 @@
+openapi: 3.1.0
+info:
+  title: VoiceMD Sidecar API
+  version: 0.1.0
+  description: Local/provider-neutral API for resolving, compiling, and linting VOICE.md contracts.
+servers:
+  - url: http://127.0.0.1:8765
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: string}
+                  service: {type: string}
+  /v1/voice/contract:
+    get:
+      operationId: getResolvedContract
+      responses:
+        "200":
+          description: Resolved contract and provenance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contract: {type: object, additionalProperties: true}
+                  body: {type: string}
+                  sources:
+                    type: array
+                    items: {type: string}
+  /v1/voice/prompt:
+    get:
+      operationId: compileVoicePrompt
+      parameters:
+        - {name: profile, in: query, schema: {type: string}}
+        - {name: audience, in: query, schema: {type: string}}
+        - {name: surface, in: query, schema: {type: string}}
+        - {name: tone, in: query, schema: {type: string}}
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [prompt, json, ascii, nemotron, nemotron-ascii]
+            default: prompt
+        - {name: compact, in: query, schema: {type: boolean, default: false}}
+        - {name: max_chars, in: query, schema: {type: integer, minimum: 256}}
+      responses:
+        "200":
+          description: Compiled prompt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [prompt]
+                properties:
+                  prompt: {type: string}
+        "400":
+          description: Invalid selector or contract
+  /v1/voice/lint:
+    post:
+      operationId: lintVoiceText
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string}
+                profile: {type: string}
+                audience: {type: string}
+                surface: {type: string}
+                tone: {type: string}
+      responses:
+        "200":
+          description: Lint result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, issues]
+                properties:
+                  ok: {type: boolean}
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule_id: {type: string}
+                        severity: {type: string}
+                        message: {type: string}
+                        evidence: {type: [string, "null"]}
