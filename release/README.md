@@ -1,18 +1,21 @@
 # Release artifacts
 
-These `0.1.0a2` files are historical and stale for the newer `0.1.0a3` source tree. Do not install or redistribute them as the current release; rebuild and verify replacement artifacts first.
+This directory contains the complete local release bundle for VoiceMD `0.1.0a3`, built from source revision `6f58f31bcb5aac7ffe7730d7af9d576000dff182`.
 
-- `voicemd-0.1.0a2-py3-none-any.whl`: installable Python CLI and library.
-- `voicemd-0.1.0a2.tar.gz`: normalized Python source distribution.
+- `voicemd-0.1.0a3-py3-none-any.whl`: installable Python CLI and library.
+- `voicemd-0.1.0a3.tar.gz`: normalized Python source distribution.
 - `SBOM.spdx.json`: SPDX 2.3 software bill of materials.
 - `PROVENANCE.intoto.jsonl`: unsigned in-toto/SLSA build statement.
-- `SHA256SUMS`: checksums for all four release files.
-- `BUILD_INFO.json`: source revision, source snapshot digest, toolchain, checksums, and verified gates.
-- `VERIFICATION.md`: evidence and explicit limits of the local release verification.
+- `SHA256SUMS`: checksums for the two distributions and two supply-chain records.
+- `BUILD_INFO.json`: source identity, source snapshot, toolchain, checksums, and verified gates.
+- `VERIFICATION.md`: local verification evidence and its explicit limits.
 
-Do not use the historical wheel as the current package. The replacement build
-for this source tree will be named `voicemd-0.1.0a3-py3-none-any.whl` and must
-pass the release verifier before installation.
+Install the wheel directly:
+
+```bash
+python -m pip install release/voicemd-0.1.0a3-py3-none-any.whl
+voicemd doctor
+```
 
 The wheel declares `PyYAML>=6.0`, `jsonschema>=4.21`, and `rfc8785>=0.1.4,<1`. The repository-level `lite/` loaders remain the dependency-free path.
 
@@ -23,8 +26,8 @@ python scripts/verify_release.py \
   --distributions release \
   --metadata release \
   --source-root . \
-  --source-revision 3bbeabacb606b8919b097b7db293652e750e76b6 \
-  --release-revision 3bbeabacb606b8919b097b7db293652e750e76b6
+  --source-revision 6f58f31bcb5aac7ffe7730d7af9d576000dff182 \
+  --release-revision 6f58f31bcb5aac7ffe7730d7af9d576000dff182
 ```
 
-`--trusted-runtime-checks` additionally installs and executes artifact code on the host. It is only appropriate for a self-built or otherwise trusted artifact and is not a sandbox or authenticity proof.
+`--trusted-runtime-checks` is available for the complete outer release ZIP. It installs and executes self-built artifact code on the host; it is not a sandbox or an authenticity proof.

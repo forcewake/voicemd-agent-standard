@@ -2,41 +2,42 @@
   "project": "VoiceMD",
   "package_name": "voicemd",
   "specification_version": "0.1.0-draft.2",
-  "package_version": "0.1.0a2",
-  "artifact_status": "stale",
-  "source_revision": "3bbeabacb606b8919b097b7db293652e750e76b6",
-  "release_revision": "3bbeabacb606b8919b097b7db293652e750e76b6",
-  "source_sha256": "787576c5202b4614677d28f44ae870eabf7b203a58b530059b31ac7c3f3429c0",
-  "built_at": "2026-08-24",
+  "package_version": "0.1.0a3",
+  "artifact_status": "current",
+  "source_revision": "6f58f31bcb5aac7ffe7730d7af9d576000dff182",
+  "release_revision": "6f58f31bcb5aac7ffe7730d7af9d576000dff182",
+  "source_sha256": "af83cc5e5d96e00a719478f460c34962b6df076fe186afb7c3f0605280d16f72",
+  "built_at": "2026-08-25",
   "python": "3.14.5",
-  "tests_passed": 297,
+  "tests_passed": 355,
   "artifacts": {
-    "voicemd-0.1.0a2-py3-none-any.whl": {
-      "sha256": "a62613e94d53a218692faf3077e83b3f2b519c1e6020ba0e613ab655f3ececa8"
+    "voicemd-0.1.0a3-py3-none-any.whl": {
+      "sha256": "c27e41c7152c0b27af0d9725b830b19aad813e6a9f56d400ecbaa9a5de43fb45"
     },
-    "voicemd-0.1.0a2.tar.gz": {
-      "sha256": "ee7a83aa2f531f7d49c83c1c98aec5b05acaaa063bcad7cf174054513de6a323"
+    "voicemd-0.1.0a3.tar.gz": {
+      "sha256": "da5ca339b2cf179da6b01209a3412ffb3b3502bb9c150751abd9df4c64153eca"
     }
   },
   "release_metadata": {
     "PROVENANCE.intoto.jsonl": {
-      "sha256": "a15bba84af9f179de9fcfbcccc23b0e0ff989ebf7389888bded111bbb65e264a"
+      "sha256": "33e1a8c7c704eb71f6a9ac56e73a302db5df9ff02bfc16cf17cc41f0193f6dfe"
     },
     "SBOM.spdx.json": {
-      "sha256": "9615a9d9a23b8610f444fb7fb648ffb6e800dfb578a98615f1f979d17395d527"
+      "sha256": "f200f0cfe61c41f6c57e607577a4c48b016aab5c4b454945712556b13fa65958"
     }
   },
   "verification": [
-    "strict L3 validation for the root, full, and spoken contracts",
-    "297 unit and regression tests on Python 3.12.7, 3.13.12, and 3.14.5",
-    "83 percent branch-aware coverage",
+    "strict L3 validation and inline cases for the root, full, spoken, and Azure demonstration contracts",
+    "355 unit and regression tests plus clean wheel and sdist runtime checks",
+    "79 percent branch-aware coverage",
     "byte-identical wheel and normalized sdist across two pinned builds",
     "Twine metadata, exact distribution inventory, and wheel RECORD verification",
     "SPDX 2.3 SBOM and unsigned SLSA provenance verification",
+    "closed and canonical outer ZIP inventory, boundary, member-type, and binary asset checks",
     "57 of 57 independent TypeScript core conformance vectors",
     "TypeScript strict build, zero npm audit findings, and .NET 8 build with zero warnings",
-    "Azure OpenAI 14-case deterministic evaluation with provenance-bound secret-free records",
-    "source, symlink, extends, YAML, selector, sidecar, and evaluation security regression coverage",
+    "sanitized checksum-bound Azure OpenAI Voice proof bundles with no endpoint or secret fields",
+    "closed GitHub Pages inventory with a standard-first landing page and separate Azure proof page",
     "Python, Node.js, and shell lite-loader equivalence",
     "Nemotron ASCII compilation and 5000-character authority-preserving budget"
   ]
