@@ -3,26 +3,29 @@
   "package_name": "voicemd",
   "specification_version": "0.1.0-draft.1",
   "package_version": "0.1.0a1",
-  "artifact_status": "stale",
-  "source_revision": null,
-  "source_sha256": null,
-  "stale_reason": "Reference implementation and release tooling changed after these artifacts were built. Rebuild and reverify before publishing.",
+  "artifact_status": "current",
+  "source_revision": "1c3ddbd577d9eadc830c8bb0481444de29c820b2",
+  "source_sha256": "42e2b96ca562e48c4338502687f07ae0629a1150dedc18c9959374f23e594a41",
   "built_at": "2026-08-24",
-  "python": "3.13.5",
-  "tests_passed": 30,
+  "python": "3.13.12",
+  "tests_passed": 117,
   "artifacts": {
-    "voicemd-0.1.0a1-py3-none-any.whl": {"sha256": "5674e7fde764e293b68452328b75f88a3616af6620468f38b63aa5a4b72588b1"},
-    "voicemd-0.1.0a1.tar.gz": {"sha256": "bd6fce9729dcb2b50f9cb9b0187f2d50429a7a09b5665376902027676e494eb1"}
+    "voicemd-0.1.0a1-py3-none-any.whl": {"sha256": "14f0d8ef198872d1f97a3dd981de9334f6934e5cd5e33bec80dfc7db0f8d2c1e"},
+    "voicemd-0.1.0a1.tar.gz": {"sha256": "5d7351ad06a304daac9b5b908773468bc5a6b4d72f75c6310cb6da4e52a549d6"}
   },
   "verification": [
     "strict L3 validation",
-    "unit and regression suite",
+    "117 unit and regression tests",
+    "78 percent branch-aware coverage",
+    "fresh-clone wheel and source-distribution build",
     "clean wheel install",
     "clean source-distribution test run",
-    "HTTP sidecar smoke test",
+    "HTTP sidecar validation and resource-limit tests",
     "Python, Node.js, and shell lite-loader equivalence",
     "Nemotron ASCII compilation",
-    "adapter install and shared-owner uninstall",
+    "adapter install, ownership health, and shared-owner uninstall",
+    "TypeScript and .NET client builds",
+    "Azure OpenAI transport smoke and 14-case deterministic score",
     "JSON, JSONL, YAML, OpenAPI, and local Markdown-link parsing"
   ]
 }
