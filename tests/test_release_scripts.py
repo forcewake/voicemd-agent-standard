@@ -318,3 +318,47 @@ def test_sdist_rejects_forbidden_build_output(tmp_path: Path):
             package_name="voicemd",
             package_version="0.1.0",
         )
+
+
+def test_runtime_verifier_scopes_voice_environment_to_contract_smoke(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    verifier = _load_script("verify_release")
+    root = tmp_path / "root"
+    root.mkdir()
+    temporary = tmp_path / "temporary"
+    temporary.mkdir()
+    wheel = tmp_path / "package.whl"
+    sdist = tmp_path / "package.tar.gz"
+    wheel.write_bytes(b"wheel")
+    sdist.write_bytes(b"sdist")
+    monkeypatch.setenv("VOICE_MD", "outside")
+    monkeypatch.setenv("VOICE_MD_HOME", "outside")
+    monkeypatch.setenv("VOICE_MD_ROOT", "outside")
+
+    class FakeBuilder:
+        def __init__(self, **_kwargs):
+            pass
+
+        def create(self, path: Path) -> None:
+            path.mkdir(parents=True)
+
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_run(command: list[str], *, cwd: Path, env: dict[str, str]) -> None:
+        assert cwd == root
+        calls.append((command, env))
+        if "compile" in command:
+            output = Path(command[command.index("--output") + 1])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text("ASCII", encoding="utf-8")
+
+    monkeypatch.setattr(verifier.venv, "EnvBuilder", FakeBuilder)
+    monkeypatch.setattr(verifier, "run", fake_run)
+    verifier.verify_runtime(root, wheel, sdist, temporary)
+
+    smoke_calls = [entry for entry in calls if "validate" in entry[0] or "compile" in entry[0]]
+    pytest_call = next(entry for entry in calls if "pytest" in entry[0])
+    assert all(env["VOICE_MD_ROOT"] == str(root) for _, env in smoke_calls)
+    for variable in ("VOICE_MD", "VOICE_MD_HOME", "VOICE_MD_ROOT"):
+        assert variable not in pytest_call[1]

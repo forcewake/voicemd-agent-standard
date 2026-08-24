@@ -655,9 +655,10 @@ def _venv_python(environment: Path) -> Path:
 
 def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> None:
     base_env = os.environ.copy()
-    base_env.pop("PYTHONPATH", None)
+    for variable in ("PYTHONPATH", "VOICE_MD", "VOICE_MD_HOME", "VOICE_MD_ROOT"):
+        base_env.pop(variable, None)
     base_env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-    base_env["VOICE_MD_ROOT"] = str(root)
+    smoke_env = {**base_env, "VOICE_MD_ROOT": str(root)}
 
     wheel_environment = temporary / "wheel-env"
     venv.EnvBuilder(with_pip=True, clear=True).create(wheel_environment)
@@ -671,7 +672,7 @@ def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> Non
     run(
         [str(wheel_python), "-m", "voicemd", "validate", "--path", "VOICE.md", "--strict"],
         cwd=root,
-        env=base_env,
+        env=smoke_env,
     )
     output = root / ".voice/verify-nemotron.txt"
     run(
@@ -693,7 +694,7 @@ def verify_runtime(root: Path, wheel: Path, sdist: Path, temporary: Path) -> Non
             str(output),
         ],
         cwd=root,
-        env=base_env,
+        env=smoke_env,
     )
     prompt = output.read_text(encoding="utf-8")
     if not prompt.isascii() or len(prompt) > 5000:
