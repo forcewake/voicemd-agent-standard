@@ -1,6 +1,6 @@
 # Release artifacts
 
-This directory contains the complete local release bundle for VoiceMD `0.1.0a3`, built from source revision `35d0f9325c369a7a982d24a3cb63ceb25e13cb27`.
+This directory contains the complete local release bundle for VoiceMD `0.1.0a3`, built from source revision `83a4c11fc47bd145c115f3db3f7701155848ecbc`.
 
 - `voicemd-0.1.0a3-py3-none-any.whl`: installable Python CLI and library.
 - `voicemd-0.1.0a3.tar.gz`: normalized Python source distribution.
@@ -26,8 +26,8 @@ python scripts/verify_release.py \
   --distributions release \
   --metadata release \
   --source-root . \
-  --source-revision 35d0f9325c369a7a982d24a3cb63ceb25e13cb27 \
-  --release-revision 35d0f9325c369a7a982d24a3cb63ceb25e13cb27
+  --source-revision 83a4c11fc47bd145c115f3db3f7701155848ecbc \
+  --release-revision 83a4c11fc47bd145c115f3db3f7701155848ecbc
 ```
 
 `--trusted-runtime-checks` is available for the complete outer release ZIP. It installs and executes self-built artifact code on the host; it is not a sandbox or an authenticity proof.

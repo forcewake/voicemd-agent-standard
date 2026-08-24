@@ -1,6 +1,6 @@
 # Verification record — 2026-08-25
 
-This record applies to VoiceMD `0.1.0a3`, built from source revision `35d0f9325c369a7a982d24a3cb63ceb25e13cb27`. The embedded provenance is deterministic and unsigned.
+This record applies to VoiceMD `0.1.0a3`, built from source revision `83a4c11fc47bd145c115f3db3f7701155848ecbc`. The embedded provenance is deterministic and unsigned.
 
 - [x] 355 unit and regression tests passed; source tests ran on Python 3.13.11, targeted compatibility tests ran on isolated Python 3.10.19, and clean wheel/sdist runtime checks ran on Python 3.14.5.
 - [x] Branch-aware coverage was 79%, above the configured 75% gate.
