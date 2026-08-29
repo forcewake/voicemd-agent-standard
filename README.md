@@ -1,4 +1,4 @@
-# VoiceMD
+# voice.md
 
 [![PyPI](https://img.shields.io/pypi/v/voicemd.svg?label=PyPI&color=2563eb)](https://pypi.org/project/voicemd/)
 [![Python](https://img.shields.io/pypi/pyversions/voicemd.svg?color=0f766e)](https://pypi.org/project/voicemd/)
